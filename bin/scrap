@@ -1,0 +1,2 @@
+#!/usr/bin/env zsh
+cp -r ./**/*.(avi|mkv|srt|mp4|idx|sub|sfv) -t .

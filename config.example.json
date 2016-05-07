@@ -1,0 +1,19 @@
+{
+  "database": {
+    "root": "root",
+    "password": "password",
+    "db": "localflix"
+  },
+  "server": {
+    "url": "localhost",
+    "port": "3000"
+  },
+  "fileserver": {
+    "url": "localhost",
+    "root_directory": "Z:/serien/",
+    "port": "3001"
+  },
+  "TMDb":{
+    "api_key": "api_key"
+  }
+}

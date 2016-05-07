@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#serie1="Vikings"
+#serie2="Game of Thrones"
+#
+#rm -rf $serie1 && rm -rf $serie2
+#rm -rf tmp
+#mkdir $serie1 && mkdir $serie2
+#mkdir $serie1/S1 && mkdir $serie1/S2
+#mkdir $serie2/S1 && mkdir $serie2/S2
+#mkdir tmp
+#echo "" > $serie1/S1/${serie1}_1.txt
+#echo "" > $serie1/S2/${serie1}_2.txt
+#echo "" > $serie2/S1/${serie2}_1.txt
+#echo "" > $serie2/S2/${serie2}_2_1.txt
+#echo "" > $serie2/S2/${serie2}_2_2.txt
+
+mv ./**/*.(avi|mkv|srt|mp4|idx|sub) -t ./tmp
