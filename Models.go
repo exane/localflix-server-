@@ -5,7 +5,7 @@ import "github.com/jinzhu/gorm"
 type Serie struct {
   gorm.Model
   Name         string
-  Description  string
+  Description  string`gorm:"type:text"`
   Seasons      []*Season
   OriginalName string
   PosterPath   string
@@ -17,7 +17,7 @@ type Serie struct {
 type Season struct {
   gorm.Model
   Name         string
-  Description  string
+  Description  string`gorm:"type:text"`
   PosterPath   string
   AirDate      string
   OriginalName string
@@ -30,7 +30,7 @@ type Season struct {
 type Episode struct {
   gorm.Model
   Name          string
-  Description   string
+  Description   string`gorm:"type:text"`
   Src           string
   SeasonID      int
   Extension     string
