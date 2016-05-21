@@ -19,6 +19,8 @@ func router() {
   router.HandleFunc("/video/{id}", video)
   router.HandleFunc("/test", test)
 
+  router.HandleFunc("/tmdb/search/{name}", findSeries).Methods("GET")
+
   router.HandleFunc("/series", series).Methods("GET")
   router.HandleFunc("/serie/{serie_id}", serie).Methods("GET")
   router.HandleFunc("/season/{season_id}", season).Methods("GET")
@@ -26,6 +28,14 @@ func router() {
   router.HandleFunc("/episode/{episode_id}", episode).Methods("GET")
 
   http.ListenAndServe(config.Server.Url + ":" + config.Server.Port, router)
+}
+
+func findSeries(w http.ResponseWriter, r *http.Request) {
+  title := mux.Vars(r)["name"]
+  res := findSerie(title)
+  w.Header().Set("Content-Type", "text/json")
+  w.Header().Set("Access-Control-Allow-Origin", "*")
+  w.Write([]byte(toJSON(res.Results)))
 }
 
 func episode(w http.ResponseWriter, r *http.Request) {

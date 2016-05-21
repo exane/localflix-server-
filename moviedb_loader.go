@@ -16,6 +16,13 @@ const (
 
 var series_dump []Serie
 
+func getTmdb() *tmdb.TMDb {
+  if tmdn == nil {
+    tmdn = tmdb.Init(load_config().TMDb.API_KEY)
+  }
+  return tmdn
+}
+
 func load_tmdb() {
   tmdn = tmdb.Init(load_config().TMDb.API_KEY)
   series_dump = loadDump("./fetch/DATA_DUMP.json")
@@ -183,5 +190,14 @@ func load_episodes(rlc *RequestLimitCheck, season *Season, seasonInfo *tmdb.TvSe
       season.Episodes = append(season.Episodes, &e)
     }
   }
+}
+
+func findSerie(name string) *tmdb.TvSearchResults {
+  tmdn := getTmdb()
+  result, err := tmdn.SearchTv(name, nil)
+  if err != nil {
+    println(err)
+  }
+  return result
 }
 
