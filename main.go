@@ -5,6 +5,7 @@ import (
   "net/http"
   "time"
   "os"
+  "github.com/exane/localflix/fetch"
 )
 
 func fileserver() {
@@ -18,22 +19,24 @@ func server() {
   router()
 }
 
-var(
+var (
   INSTALL = os.Getenv("INSTALL")
 )
 
 func main() {
 
-  init_db()
+  initDb()
 
-  if INSTALL == "true" {
-    go func() {
-      create_tables()
-      dump_import()
-      load_tmdb()
-    }()
-  }
-
+  go func() {
+    fetch.Fetch()
+    if INSTALL == "true" {
+      createTables()
+      dumpImport()
+      loadTmdb()
+    } else {
+      updateDb()
+    }
+  }()
 
   defer DB.Close()
   go fileserver()

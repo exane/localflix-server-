@@ -14,23 +14,23 @@ const (
   LIMIT_RESET = 15 //seconds
 )
 
-var series_dump []Serie
+var seriesDump []Serie
+var rlc *RequestLimitCheck
 
 func getTmdb() *tmdb.TMDb {
   if tmdn == nil {
-    tmdn = tmdb.Init(load_config().TMDb.API_KEY)
+    tmdn = tmdb.Init(loadConfig().TMDb.API_KEY)
+    rlc = &RequestLimitCheck{}
+    rlc.reset()
   }
   return tmdn
 }
 
-func load_tmdb() {
-  tmdn = tmdb.Init(load_config().TMDb.API_KEY)
-  series_dump = loadDump("./fetch/DATA_DUMP.json")
+func loadTmdb() {
+  tmdn = getTmdb()
+  seriesDump = loadDump("./fetch/DATA_DUMP.json")
 
-  rlc := &RequestLimitCheck{}
-  rlc.reset()
-
-  load_series(rlc)
+  loadSeries()
 }
 
 type RequestLimitCheck struct {
@@ -38,99 +38,147 @@ type RequestLimitCheck struct {
   requests int
 }
 
-func (rlc *RequestLimitCheck) time() time.Duration {
-  return time.Duration(LIMIT_RESET) * time.Second - time.Since(rlc.started)
+func (this *RequestLimitCheck) time() time.Duration {
+  return time.Duration(LIMIT_RESET) * time.Second - time.Since(this.started)
 }
 
-func (rlc *RequestLimitCheck) reset() {
-  rlc.requests = 0
-  rlc.started = time.Now()
+func (this *RequestLimitCheck) reset() {
+  this.requests = 0
+  this.started = time.Now()
 }
 
-func (rlc *RequestLimitCheck) wait() {
-  time.Sleep(rlc.time())
+func (this *RequestLimitCheck) wait() {
+  time.Sleep(this.time())
 }
 
-func (rlc *RequestLimitCheck) checkRequest() {
-  if rlc.requests >= LIMIT_REQUEST {
-    println("TMDb Request Limit Wait: ", rlc.time().String())
-    rlc.wait()
+func (this *RequestLimitCheck) checkRequest() {
+  if this.requests >= LIMIT_REQUEST {
+    println("TMDb Request Limit Wait: ", this.time().String())
+    this.wait()
     println("TMDb Request Limit Continue")
-    rlc.reset()
+    this.reset()
   }
-  rlc.requests++
+  this.requests++
 }
 
-func load_series(rlc *RequestLimitCheck) {
+func loadSeries() {
   println("TMDb Series Import Start")
 
-  for _, val := range series_dump {
-    /*if rlc.requests >= LIMIT_REQUEST {
-      println("TMDb Request Limit Wait: ", rlc.time().String())
-      rlc.wait()
-      println("TMDb Request Limit Continue")
-      rlc.reset()
-    }*/
-    serie := Serie{}
-    DB.Where("Name = ?", val.Name).First(&serie)
-
-    rlc.checkRequest()
-    search_tv, err := tmdn.SearchTv(val.Name, nil)
-
-    if err != nil {
-      println("@@@@@@@@@@@@@@@")
-      println(err.Error())
-      println("@@@@@@@@@@@@@@@")
-    }
-
-    if len(search_tv.Results) == 0 {
-      continue
-    }
-    rlc.checkRequest()
-    tv, _ := tmdn.GetTvInfo(search_tv.Results[0].ID, nil)
-    serie.PosterPath = tv.PosterPath
-    serie.FirstAirDate = tv.FirstAirDate
-    serie.VoteAverage = tv.VoteAverage
-    serie.VoteCount = tv.VoteCount
-    serie.OriginalName = tv.OriginalName
-    serie.Description = tv.Overview
-
-    //fetch season data
-    DB.Model(serie).Related(&serie.Seasons)
-    load_seasons(rlc, &serie, tv)
-
-    DB.Save(&serie)
+  for _, val := range seriesDump {
+    loadSerie(val.Name)
   }
   println("TMDb Series Import Done")
 }
 
-func fetch_number(name string) int {
+func loadSerie(title string) {
+  tmdn := getTmdb()
+
+  serie := Serie{Name: title}
+  DB.Where("Name = ?", title).First(&serie)
+
+  rlc.checkRequest()
+  searchTv, err := tmdn.SearchTv(title, nil)
+
+  if err != nil {
+    println("@@@@@@@@@@@@@@@")
+    println(err.Error())
+    println("@@@@@@@@@@@@@@@")
+  }
+
+  if len(searchTv.Results) == 0 {
+    return
+  }
+  rlc.checkRequest()
+  tv, _ := tmdn.GetTvInfo(searchTv.Results[0].ID, nil)
+  applySerie(&serie, *tv)
+
+  //fetch season data
+  DB.Model(serie).Related(&serie.Seasons)
+  loadSeasons(&serie, tv)
+
+  DB.Save(&serie)
+}
+
+func findSerie(name string) *tmdb.TvSearchResults {
+  tmdn := getTmdb()
+
+  rlc.checkRequest()
+  result, err := tmdn.SearchTv(name, nil)
+  if err != nil {
+    println(err)
+  }
+  return result
+}
+
+func fetchNumber(name string) int {
   regex := regexp.MustCompile("[Ss]?(\\d+)")
   ret, _ := strconv.Atoi(regex.ReplaceAllString(name, "$1"))
   return ret
 }
 
-func fetch_season(season *Season, seasonInfo *tmdb.TvSeason) {
-  season.Description = seasonInfo.Overview
-  season.PosterPath = seasonInfo.PosterPath
-  season.SeasonNumber = seasonInfo.SeasonNumber
-  season.AirDate = seasonInfo.AirDate
-  season.OriginalName = seasonInfo.Name
+func applySerie(serie *Serie, info tmdb.TV) {
+  if len(info.PosterPath) > 0 {
+    serie.PosterPath = info.PosterPath
+  }
+  if len(info.FirstAirDate) > 0 {
+    serie.FirstAirDate = info.FirstAirDate
+  }
+  if info.VoteAverage > 0 {
+    serie.VoteAverage = info.VoteAverage
+  }
+  if info.VoteCount > 0 {
+    serie.VoteCount = info.VoteCount
+  }
+  if len(info.OriginalName) > 0 {
+    serie.OriginalName = info.OriginalName
+  }
+  if len(info.Overview) > 0 {
+    serie.Description = info.Overview
+  }
+  if info.ID > 0 {
+    serie.Tmdb_id = info.ID
+  }
 }
 
-func load_seasons(rlc *RequestLimitCheck, serie *Serie, tv *tmdb.TV) {
+func applySeason(season *Season, seasonInfo *tmdb.TvSeason) {
+  if len(seasonInfo.Overview) > 0 {
+    season.Description = seasonInfo.Overview
+  }
+
+  if len(seasonInfo.PosterPath) > 0 {
+    season.PosterPath = seasonInfo.PosterPath
+  }
+
+  if seasonInfo.SeasonNumber > 0 {
+    season.SeasonNumber = seasonInfo.SeasonNumber
+  }
+
+  if len(seasonInfo.AirDate) > 0 {
+    season.AirDate = seasonInfo.AirDate
+  }
+
+  if len(seasonInfo.Name) > 0 {
+    season.OriginalName = seasonInfo.Name
+  }
+
+  if seasonInfo.ID > 0 {
+    season.Tmdb_id = seasonInfo.ID
+  }
+}
+
+func loadSeasons(serie *Serie, tv *tmdb.TV) {
   println("TMDb Seasons Import Start", tv.Name)
 
-  for _, tv_season := range tv.Seasons {
+  for _, tvSeason := range tv.Seasons {
     hasSeason := false
 
     rlc.checkRequest()
-    seasonInfo, err := tmdn.GetTvSeasonInfo(tv.ID, tv_season.SeasonNumber, nil)
+    seasonInfo, err := tmdn.GetTvSeasonInfo(tv.ID, tvSeason.SeasonNumber, nil)
 
     for _, season := range serie.Seasons {
-      nr := fetch_number(season.Name)
+      nr := fetchNumber(season.Name)
 
-      if tv_season.SeasonNumber != nr {
+      if tvSeason.SeasonNumber != nr {
         continue
       }
 
@@ -140,12 +188,12 @@ func load_seasons(rlc *RequestLimitCheck, serie *Serie, tv *tmdb.TV) {
       }
       //load episodes
       DB.Model(season).Related(&season.Episodes)
-      load_episodes(rlc, season, seasonInfo, tv)
-      fetch_season(season, seasonInfo)
+      loadEpisodes(season, seasonInfo, tv)
+      applySeason(season, seasonInfo)
     }
     if !hasSeason {
       s := Season{}
-      fetch_season(&s, seasonInfo)
+      applySeason(&s, seasonInfo)
       serie.Seasons = append(serie.Seasons, &s)
       s.Missing = true
     }
@@ -153,51 +201,75 @@ func load_seasons(rlc *RequestLimitCheck, serie *Serie, tv *tmdb.TV) {
   println("TMDb Seasons Import Done", tv.Name)
 }
 
-func fetch_episode(e *Episode, i *tmdb.TvEpisode) {
-  e.AirDate = i.AirDate
-  e.EpisodeNumber = i.EpisodeNumber
-  e.OriginalName = i.Name
-  e.StillPath = i.StillPath
+func applyEpisode(e *Episode, i *tmdb.TvEpisode) {
+  if len(i.AirDate) > 0 {
+    e.AirDate = i.AirDate
+  }
+  if i.EpisodeNumber > 0 {
+    e.EpisodeNumber = i.EpisodeNumber
+  }
+  if len(i.Name) > 0 {
+    e.OriginalName = i.Name
+  }
+  if len(i.StillPath) > 0 {
+    e.StillPath = i.StillPath
+  }
+  if i.ID > 0 {
+    e.Tmdb_id = i.ID
+  }
 }
 
-func load_episodes(rlc *RequestLimitCheck, season *Season, seasonInfo *tmdb.TvSeason, tv *tmdb.TV) {
-  for _, tv_episode := range seasonInfo.Episodes {
+func loadEpisodes(season *Season, seasonInfo *tmdb.TvSeason, tv *tmdb.TV) {
+  for _, tvEpisode := range seasonInfo.Episodes {
     hasEpisode := false
 
     rlc.checkRequest()
-    episodeInfo, err := tmdn.GetTvEpisodeInfo(tv.ID, tv_episode.SeasonNumber, tv_episode.EpisodeNumber, nil)
+    episodeInfo, err := tmdn.GetTvEpisodeInfo(tv.ID, tvEpisode.SeasonNumber, tvEpisode.EpisodeNumber, nil)
 
     if err != nil {
       println(err.Error())
-      println(tv.Name, tv_episode.SeasonNumber, tv_episode.EpisodeNumber)
+      println(tv.Name, tvEpisode.SeasonNumber, tvEpisode.EpisodeNumber)
     }
 
     for _, episode := range season.Episodes {
-      nr := fetch_number(episode.Name)
-      if nr != tv_episode.EpisodeNumber {
+      nr := fetchNumber(episode.Name)
+      if nr != tvEpisode.EpisodeNumber {
         continue
       }
 
-      fetch_episode(episode, episodeInfo)
+      applyEpisode(episode, episodeInfo)
       //episode.Missing = false
 
       hasEpisode = true
     }
     if !hasEpisode {
       e := Episode{}
-      fetch_episode(&e, episodeInfo)
+      applyEpisode(&e, episodeInfo)
       e.Missing = true
       season.Episodes = append(season.Episodes, &e)
     }
   }
 }
 
-func findSerie(name string) *tmdb.TvSearchResults {
+func loadEpisode(serieId, seasonNr, episodeNr int) *tmdb.TvEpisode {
   tmdn := getTmdb()
-  result, err := tmdn.SearchTv(name, nil)
+
+  rlc.checkRequest()
+  episodeInfo, err := tmdn.GetTvEpisodeInfo(serieId, seasonNr, episodeNr, nil)
+
   if err != nil {
     println(err)
   }
-  return result
+
+  return episodeInfo
+}
+
+func loadSeason(serieId, seasonNr int) (*tmdb.TvSeason, error) {
+  tmdn := getTmdb()
+
+  rlc.checkRequest()
+  info, err := tmdn.GetTvSeasonInfo(serieId, seasonNr, nil)
+
+  return info, err
 }
 

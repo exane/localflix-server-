@@ -1,4 +1,4 @@
-package main
+package fetch
 
 import (
   "io/ioutil"
@@ -15,6 +15,19 @@ const (
   SUBTITLE = ".*[.](srt|idx|sub|sfv)$"
 )
 
+func Fetch() {
+  series := []Serie{}
+
+  files, _ := ioutil.ReadDir(PATH)
+  for i, val := range files {
+    println(val.Name())
+    series = append(series, Serie{Name: val.Name()})
+    series[i].fetchSeasons(PATH)
+  }
+  js, _ := json.Marshal(series)
+  ioutil.WriteFile(OUT_PATH + "/" + OUT + ".json", []byte(js), 0666)
+}
+
 type Serie struct {
   Name    string
   Seasons []*Season
@@ -22,6 +35,7 @@ type Serie struct {
 
 type Season struct {
   Name     string
+  SerieName string
   Episodes []*Episode
 }
 
@@ -45,25 +59,12 @@ func (season *Season) findEpisode(name string) (*Episode, bool) {
   return &Episode{}, false
 }
 
-func main() {
-  series := []Serie{}
-
-  files, _ := ioutil.ReadDir(PATH)
-  for i, val := range files {
-    println(val.Name())
-    series = append(series, Serie{Name: val.Name()})
-    series[i].fetchSeasons(PATH)
-  }
-  js, _ := json.Marshal(series)
-  ioutil.WriteFile(OUT_PATH + "/" + OUT + ".json", []byte(js), 0666)
-}
-
 func (serie *Serie) fetchSeasons(path string) {
   newPath := path + "/" + serie.Name
   files, _ := ioutil.ReadDir(newPath)
 
   for i, val := range files {
-    serie.Seasons = append(serie.Seasons, &Season{Name: val.Name()})
+    serie.Seasons = append(serie.Seasons, &Season{Name: val.Name(), SerieName: serie.Name})
     serie.Seasons[i].fetchEpisodes(newPath)
   }
 }

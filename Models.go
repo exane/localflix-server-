@@ -4,7 +4,7 @@ import "github.com/jinzhu/gorm"
 
 type Serie struct {
   gorm.Model
-  Name         string
+  Name         string`gorm:"unique"`
   Description  string`gorm:"type:text"`
   Seasons      []*Season
   OriginalName string
@@ -12,6 +12,7 @@ type Serie struct {
   VoteAverage  float32
   VoteCount    uint32
   FirstAirDate string
+  Tmdb_id      int
 }
 
 type Season struct {
@@ -25,6 +26,7 @@ type Season struct {
   SeasonNumber int
   SerieID      int
   Missing      bool`sql:"DEFAULT:false"`
+  Tmdb_id      int
 }
 
 type Episode struct {
@@ -40,6 +42,7 @@ type Episode struct {
   EpisodeNumber int
   OriginalName  string
   StillPath     string
+  Tmdb_id      int
 }
 
 type Subtitle struct {
