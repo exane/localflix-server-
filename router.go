@@ -52,6 +52,8 @@ func episode(w http.ResponseWriter, r *http.Request) {
   DB.Find(&serie, season.SerieID)
   serie_name := serie.Name
 
+  DB.Model(episode).Related(&episode.Subtitles)
+
   seasonTitle := season.OriginalName
   if !validTitle(seasonTitle) {
     seasonTitle = season.Name
