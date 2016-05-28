@@ -5,6 +5,7 @@ import (
   "time"
   "regexp"
   "strconv"
+  "strings"
 )
 
 var tmdn *tmdb.TMDb
@@ -111,6 +112,7 @@ func findSerie(name string) *tmdb.TvSearchResults {
 }
 
 func fetchNumber(name string) int {
+  name = strings.Trim(name, " ")
   regex := regexp.MustCompile("[Ss]?(\\d+)")
   ret, _ := strconv.Atoi(regex.ReplaceAllString(name, "$1"))
   return ret

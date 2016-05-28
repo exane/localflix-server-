@@ -89,6 +89,7 @@ func updateDb() {
     updateSeasons(&serie, serie_data)
   }
 }
+
 func updateSeasons(serie *Serie, serie_data Serie) {
   for _, season_data := range serie_data.Seasons {
     season := Season{}
@@ -106,6 +107,7 @@ func updateSeasons(serie *Serie, serie_data Serie) {
     updateEpisodes(serie, &season, season_data)
   }
 }
+
 func updateEpisodes(serie *Serie, season *Season, season_data *Season) {
   for _, episode_data := range season_data.Episodes {
     //src + name as unique key
