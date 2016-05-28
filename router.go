@@ -52,6 +52,16 @@ func episode(w http.ResponseWriter, r *http.Request) {
   DB.Find(&serie, season.SerieID)
   serie_name := serie.Name
 
+  seasonTitle := season.OriginalName
+  if !validTitle(seasonTitle) {
+    seasonTitle = season.Name
+  }
+
+  serieTitle := serie.OriginalName
+  if !validTitle(serieTitle) {
+    serieTitle = serie.Name
+  }
+
   result := struct {
     Episode
     SeasonName         string
@@ -62,9 +72,9 @@ func episode(w http.ResponseWriter, r *http.Request) {
   }{
     episode,
     season_name,
-    season.OriginalName,
+    seasonTitle,
     serie_name,
-    serie.OriginalName,
+    serieTitle,
     season.SerieID,
   }
 
@@ -107,12 +117,17 @@ func season(w http.ResponseWriter, r *http.Request) {
   serie := Serie{}
   DB.Find(&serie, season.SerieID)
 
+  title := serie.OriginalName
+  if !validTitle(title) {
+    title = serie.Name
+  }
+
   result := struct {
     Season
     SerieName string
   }{
     season,
-    serie.OriginalName,
+    title,
   }
 
   w.Header().Set("Content-Type", "text/json")

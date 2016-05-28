@@ -275,3 +275,11 @@ func loadSeason(serieId, seasonNr int) (*tmdb.TvSeason, error) {
   return info, err
 }
 
+func validTitle (title string) bool {
+  name := strings.Trim(title, "? ")
+  if len(name) > 0 {
+    return true
+  }
+  return false
+}
+
