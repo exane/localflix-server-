@@ -13,19 +13,54 @@ const (
   OUT = "DATA_DUMP"
   VIDEO = ".*[.](avi|web|mkv|mp4)$"
   SUBTITLE = ".*[.](srt|idx|sub|sfv)$"
+  IGNORE = ".*[.](json)$"
 )
 
+type FileType interface {
+  ReadDir(path string) ([]os.FileInfo, error)
+  WriteJSON(filename string, data []byte) error
+  PathRead() string
+  PathWrite() string
+}
+
+type File struct {}
+
+func (File) ReadDir(path string) ([]os.FileInfo, error){
+  return ioutil.ReadDir(path)
+}
+func (File) WriteJSON(filename string, data []byte) error {
+  return ioutil.WriteFile(filename, data, 0666)
+}
+func (File) PathRead() string {
+  return PATH
+}
+func (File) PathWrite() string {
+  return OUT_PATH
+}
+
 func Fetch() {
+  fetch(File{})
+}
+
+func fetch(file FileType) []byte {
   series := []Serie{}
 
-  files, _ := ioutil.ReadDir(PATH)
-  for i, val := range files {
-    println(val.Name())
-    series = append(series, Serie{Name: val.Name()})
-    series[i].fetchSeasons(PATH)
+  path := file.PathRead()
+
+  files, _ := file.ReadDir(path)
+
+  for _ , val := range files {
+    if ignore(val.Name()) {
+      continue
+    }
+    serie := Serie{Name: val.Name()}
+    serie.fetchSeasons(path, file)
+    series = append(series, serie)
   }
+
   js, _ := json.Marshal(series)
-  ioutil.WriteFile(OUT_PATH + "/" + OUT + ".json", []byte(js), 0666)
+  file.WriteJSON(file.PathWrite() + "/" + OUT + ".json", []byte(js))
+  return js
 }
 
 type Serie struct {
@@ -59,19 +94,19 @@ func (season *Season) findEpisode(name string) (*Episode, bool) {
   return &Episode{}, false
 }
 
-func (serie *Serie) fetchSeasons(path string) {
+func (serie *Serie) fetchSeasons(path string, file FileType) {
   newPath := path + "/" + serie.Name
-  files, _ := ioutil.ReadDir(newPath)
+  files, _ := file.ReadDir(newPath)
 
   for i, val := range files {
     serie.Seasons = append(serie.Seasons, &Season{Name: val.Name(), SerieName: serie.Name})
-    serie.Seasons[i].fetchEpisodes(newPath)
+    serie.Seasons[i].fetchEpisodes(newPath, file)
   }
 }
 
-func (season *Season) fetchEpisodes(path string) {
+func (season *Season) fetchEpisodes(path string, file FileType) {
   newPath := path + "/" + season.Name
-  files, _ := ioutil.ReadDir(newPath)
+  files, _ := file.ReadDir(newPath)
 
   for _, val := range files {
     episode := &Episode{
@@ -112,12 +147,18 @@ func isValid(TYPE string, file os.FileInfo) bool {
 
 func filename(name string) string {
   regex := regexp.MustCompile("^(.*)[.].*")
-
   return regex.ReplaceAllString(name, "$1")
 }
 
 func extension(name string) string {
   regex := regexp.MustCompile(".*[.](.*)$")
-
   return regex.ReplaceAllString(name, "$1")
+}
+
+func ignore(name string) bool {
+  ok, err := regexp.Match(IGNORE, []byte(name))
+  if err != nil {
+    println(err)
+  }
+  return ok
 }

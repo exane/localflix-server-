@@ -1,2 +1,2 @@
-fetch/*.json
+fetch/**/*.json
 config.json
