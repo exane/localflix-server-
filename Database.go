@@ -74,23 +74,23 @@ func loadDump(file string) []Serie {
   return data
 }
 
-func updateDb() {
+func updateDb(loader MoviedbLoaderType) {
   data := loadDump("./fetch/DATA_DUMP.json")
 
   for _, serie_data := range data {
     serie := Serie{}
-    notFound := DB.Where("name = ?", serie_data.Name).Find(&serie).RecordNotFound()
+    notFound := loader.DB().Where("name = ?", serie_data.Name).Find(&serie).RecordNotFound()
 
     if notFound {
       println("new serie! create:", serie_data.Name)
-      loadSerie(serie_data.Name)
+      loadSerie(loader, serie_data.Name)
     }
 
-    updateSeasons(&serie, serie_data)
+    updateSeasons(loader, &serie, serie_data)
   }
 }
 
-func updateSeasons(serie *Serie, serie_data Serie) {
+func updateSeasons(loader MoviedbLoaderType, serie *Serie, serie_data Serie) {
   for _, season_data := range serie_data.Seasons {
     season := Season{}
     notFound := DB.Where("serie_id = ? and name = ?", serie.ID, season_data.Name).Find(&season).RecordNotFound()
@@ -99,26 +99,26 @@ func updateSeasons(serie *Serie, serie_data Serie) {
       println("new season! create:", serie.Name, season_data.Name)
       season.SeasonNumber = fetchNumber(season_data.Name)
       season.Name = season_data.Name
-      info, _ := loadSeasonFromTMDB(serie.Tmdb_id, season.SeasonNumber)
+      info, _ := loadSeasonFromTMDB(loader, serie.Tmdb_id, season.SeasonNumber)
       applySeason(&season, info)
-      DB.Model(&serie).Association("Seasons").Append(&season)
+      loader.DB().Model(&serie).Association("Seasons").Append(&season)
     }
 
-    updateEpisodes(serie, &season, season_data)
+    updateEpisodes(loader, serie, &season, season_data)
   }
 }
 
-func updateEpisodes(serie *Serie, season *Season, season_data *Season) {
+func updateEpisodes(loader MoviedbLoaderType, serie *Serie, season *Season, season_data *Season) {
   for _, episode_data := range season_data.Episodes {
     //src + name as unique key
     episode := Episode{}
-    notFound := DB.Where("name = ? AND src = ? AND missing = ?", episode_data.Name, episode_data.Src, 0).Find(&episode).RecordNotFound()
+    notFound := loader.DB().Where("name = ? AND src = ? AND missing = ?", episode_data.Name, episode_data.Src, 0).Find(&episode).RecordNotFound()
     if notFound {
       //create new episode
       println("new episode! create:", episode_data.Src, episode_data.Name)
       //find tmdb entry
       episodeNumber := fetchNumber(episode_data.Name)
-      notExist := DB.Where("missing = ? and season_id = ? and episode_number = ?", 1, season.ID, episodeNumber).
+      notExist := loader.DB().Where("missing = ? and season_id = ? and episode_number = ?", 1, season.ID, episodeNumber).
       Find(&episode).RecordNotFound()
 
       episode.Missing = false
@@ -131,12 +131,12 @@ func updateEpisodes(serie *Serie, season *Season, season_data *Season) {
       if notExist {
         //tmdb entry does not exist
         //load tmdb
-        episodeInfo := loadEpisodeFromTMDB(serie.Tmdb_id, season.SeasonNumber, episode.EpisodeNumber)
+        episodeInfo := loadEpisodeFromTMDB(loader, serie.Tmdb_id, season.SeasonNumber, episode.EpisodeNumber)
         applyEpisode(&episode, episodeInfo)
-        DB.Model(&season).Association("Episodes").Append(&episode)
+        loader.DB().Model(&season).Association("Episodes").Append(&episode)
       } else {
         //tmdb entry exist, but no actual video file is available
-        DB.Save(&episode)
+        loader.DB().Save(&episode)
       }
 
       println("updated", episode.ID, episode_data.Src, episode_data.Name)

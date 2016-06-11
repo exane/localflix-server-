@@ -8,29 +8,29 @@ const (
 )
 
 type RequestLimitCheck struct {
-  started  time.Time
-  requests int
+  Started  time.Time
+  Requests int
 }
 
-func (this *RequestLimitCheck) time() time.Duration {
-  return time.Duration(LIMIT_RESET) * time.Second - time.Since(this.started)
+func (this *RequestLimitCheck) Time() time.Duration {
+  return time.Duration(LIMIT_RESET) * time.Second - time.Since(this.Started)
 }
 
-func (this *RequestLimitCheck) reset() {
-  this.requests = 0
-  this.started = time.Now()
+func (this *RequestLimitCheck) Reset() {
+  this.Requests = 0
+  this.Started = time.Now()
 }
 
-func (this *RequestLimitCheck) wait() {
-  time.Sleep(this.time())
+func (this *RequestLimitCheck) Wait() {
+  time.Sleep(this.Time())
 }
 
-func (this *RequestLimitCheck) checkRequest() {
-  if this.requests >= LIMIT_REQUEST {
-    println("TMDb Request Limit Wait: ", this.time().String())
-    this.wait()
+func (this *RequestLimitCheck) CheckRequest() {
+  if this.Requests >= LIMIT_REQUEST {
+    println("TMDb Request Limit Wait: ", this.Time().String())
+    this.Wait()
     println("TMDb Request Limit Continue")
-    this.reset()
+    this.Reset()
   }
-  this.requests++
+  this.Requests++
 }

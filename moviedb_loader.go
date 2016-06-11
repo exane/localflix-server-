@@ -5,46 +5,67 @@ import (
   "regexp"
   "strconv"
   "strings"
+  "github.com/jinzhu/gorm"
 )
 
-var tmdn *tmdb.TMDb
-
 var seriesDump []Serie
-var rlc *RequestLimitCheck
 
-func getTmdb() *tmdb.TMDb {
-  if tmdn == nil {
-    tmdn = tmdb.Init(loadConfig().TMDb.API_KEY)
-    rlc = &RequestLimitCheck{}
-    rlc.reset()
-  }
-  return tmdn
+type MoviedbLoaderType interface {
+  Tmdb() *tmdb.TMDb
+  Rlc() *RequestLimitCheck
+  DB() gorm.DB
 }
 
-func loadTmdb() {
-  tmdn = getTmdb()
+type MoviedbLoader struct {
+  RequestLimitcheck *RequestLimitCheck
+  Tmdn *tmdb.TMDb
+}
+
+var rlc *RequestLimitCheck
+func (this *MoviedbLoader) Rlc() *RequestLimitCheck {
+  if rlc == nil {
+    rlc = &RequestLimitCheck{}
+    rlc.Reset()
+  }
+  if this.RequestLimitcheck == nil {
+    this.RequestLimitcheck = rlc
+  }
+  return this.RequestLimitcheck
+}
+func (this *MoviedbLoader) Tmdb() *tmdb.TMDb {
+  if this.Tmdb == nil {
+    this.Tmdb = tmdb.Init(loadConfig().TMDb.API_KEY)
+  }
+  this.Rlc().CheckRequest()
+  return this.Tmdb
+}
+func (this *MoviedbLoader) DB() gorm.DB {
+  return DB
+}
+
+func loadTmdb(loader MoviedbLoaderType) {
   seriesDump = loadDump("./fetch/DATA_DUMP.json")
 
-  loadSeries()
+  loadSeries(loader)
 }
 
-func loadSeries() {
+func loadSeries(loader MoviedbLoaderType) {
   println("TMDb Series Import Start")
 
   for _, val := range seriesDump {
-    loadSerie(val.Name)
+    loadSerie(loader, val.Name)
   }
   println("TMDb Series Import Done")
 }
 
-func loadSerie(title string) {
-  tmdn := getTmdb()
+func loadSerie(loader MoviedbLoaderType, title string) {
+  //tmdn := getTmdb()
 
   serie := Serie{Name: title}
-  DB.Where("Name = ?", title).First(&serie)
+  loader.DB().Where("Name = ?", title).First(&serie)
 
-  rlc.checkRequest()
-  searchTv, err := tmdn.SearchTv(title, nil)
+  //loader.Rlc().CheckRequest()
+  searchTv, err := loader.Tmdb().SearchTv(title, nil)
 
   if err != nil {
     println("@@@@@@@@@@@@@@@")
@@ -55,24 +76,24 @@ func loadSerie(title string) {
   if len(searchTv.Results) == 0 {
     return
   }
-  rlc.checkRequest()
-  tv, _ := tmdn.GetTvInfo(searchTv.Results[0].ID, nil)
+  //loader.Rlc().CheckRequest()
+  tv, _ := loader.Tmdb().GetTvInfo(searchTv.Results[0].ID, nil)
   applySerie(&serie, *tv)
 
   //fetch season data
-  DB.Model(serie).Related(&serie.Seasons)
-  loadSeasons(&serie, tv)
+  loader.DB().Model(serie).Related(&serie.Seasons)
+  loadSeasons(loader, &serie, tv)
 
-  DB.Save(&serie)
+  loader.DB().Save(&serie)
 }
-func loadSeasons(serie *Serie, tv *tmdb.TV) {
+func loadSeasons(loader MoviedbLoaderType, serie *Serie, tv *tmdb.TV) {
   println("TMDb Seasons Import Start", tv.Name)
 
   for _, tvSeason := range tv.Seasons {
     hasSeason := false
 
-    rlc.checkRequest()
-    seasonInfo, err := tmdn.GetTvSeasonInfo(tv.ID, tvSeason.SeasonNumber, nil)
+    //loader.Rlc().CheckRequest()
+    seasonInfo, err := loader.Tmdb().GetTvSeasonInfo(tv.ID, tvSeason.SeasonNumber, nil)
 
     for _, season := range serie.Seasons {
       nr := fetchNumber(season.Name)
@@ -86,8 +107,8 @@ func loadSeasons(serie *Serie, tv *tmdb.TV) {
         println(err.Error())
       }
       //load episodes
-      DB.Model(season).Related(&season.Episodes)
-      loadEpisodes(season, seasonInfo, tv)
+      loader.DB().Model(season).Related(&season.Episodes)
+      loadEpisodes(loader, season, seasonInfo, tv)
       applySeason(season, seasonInfo)
     }
     if !hasSeason {
@@ -99,12 +120,11 @@ func loadSeasons(serie *Serie, tv *tmdb.TV) {
   }
   println("TMDb Seasons Import Done", tv.Name)
 }
-func loadEpisodes(season *Season, seasonInfo *tmdb.TvSeason, tv *tmdb.TV) {
+func loadEpisodes(loader MoviedbLoaderType, season *Season, seasonInfo *tmdb.TvSeason, tv *tmdb.TV) {
   for _, tvEpisode := range seasonInfo.Episodes {
     hasEpisode := false
 
-    rlc.checkRequest()
-    episodeInfo, err := tmdn.GetTvEpisodeInfo(tv.ID, tvEpisode.SeasonNumber, tvEpisode.EpisodeNumber, nil)
+    episodeInfo, err := loader.Tmdb().GetTvEpisodeInfo(tv.ID, tvEpisode.SeasonNumber, tvEpisode.EpisodeNumber, nil)
 
     if err != nil {
       println(err.Error())
@@ -118,7 +138,6 @@ func loadEpisodes(season *Season, seasonInfo *tmdb.TvSeason, tv *tmdb.TV) {
       }
 
       applyEpisode(episode, episodeInfo)
-      //episode.Missing = false
 
       hasEpisode = true
     }
@@ -204,19 +223,12 @@ func applyEpisode(e *Episode, i *tmdb.TvEpisode) {
   }
 }
 
-func loadSeasonFromTMDB(serieId, seasonNr int) (*tmdb.TvSeason, error) {
-  tmdn := getTmdb()
-
-  rlc.checkRequest()
-  info, err := tmdn.GetTvSeasonInfo(serieId, seasonNr, nil)
-
+func loadSeasonFromTMDB(loader MoviedbLoaderType, serieId, seasonNr int) (*tmdb.TvSeason, error) {
+  info, err := loader.Tmdb().GetTvSeasonInfo(serieId, seasonNr, nil)
   return info, err
 }
-func loadEpisodeFromTMDB(serieId, seasonNr, episodeNr int) *tmdb.TvEpisode {
-  tmdn := getTmdb()
-
-  rlc.checkRequest()
-  episodeInfo, err := tmdn.GetTvEpisodeInfo(serieId, seasonNr, episodeNr, nil)
+func loadEpisodeFromTMDB(loader MoviedbLoaderType, serieId, seasonNr, episodeNr int) *tmdb.TvEpisode {
+  episodeInfo, err := loader.Tmdb().GetTvEpisodeInfo(serieId, seasonNr, episodeNr, nil)
 
   if err != nil {
     println(err)
@@ -225,11 +237,8 @@ func loadEpisodeFromTMDB(serieId, seasonNr, episodeNr int) *tmdb.TvEpisode {
   return episodeInfo
 }
 
-func findSerie(name string) *tmdb.TvSearchResults {
-  tmdn := getTmdb()
-
-  rlc.checkRequest()
-  result, err := tmdn.SearchTv(name, nil)
+func findSerie(loader MoviedbLoader, name string) *tmdb.TvSearchResults {
+  result, err := loader.Tmdb().SearchTv(name, nil)
   if err != nil {
     println(err)
   }
