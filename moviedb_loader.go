@@ -65,75 +65,6 @@ func loadSerie(title string) {
 
   DB.Save(&serie)
 }
-
-func findSerie(name string) *tmdb.TvSearchResults {
-  tmdn := getTmdb()
-
-  rlc.checkRequest()
-  result, err := tmdn.SearchTv(name, nil)
-  if err != nil {
-    println(err)
-  }
-  return result
-}
-
-func fetchNumber(name string) int {
-  name = strings.Trim(name, " ")
-  regex := regexp.MustCompile("[Ss]?(\\d+)")
-  ret, _ := strconv.Atoi(regex.ReplaceAllString(name, "$1"))
-  return ret
-}
-
-func applySerie(serie *Serie, info tmdb.TV) {
-  if len(info.PosterPath) > 0 {
-    serie.PosterPath = info.PosterPath
-  }
-  if len(info.FirstAirDate) > 0 {
-    serie.FirstAirDate = info.FirstAirDate
-  }
-  if info.VoteAverage > 0 {
-    serie.VoteAverage = info.VoteAverage
-  }
-  if info.VoteCount > 0 {
-    serie.VoteCount = info.VoteCount
-  }
-  if len(info.OriginalName) > 0 {
-    serie.OriginalName = info.OriginalName
-  }
-  if len(info.Overview) > 0 {
-    serie.Description = info.Overview
-  }
-  if info.ID > 0 {
-    serie.Tmdb_id = info.ID
-  }
-}
-
-func applySeason(season *Season, seasonInfo *tmdb.TvSeason) {
-  if len(seasonInfo.Overview) > 0 {
-    season.Description = seasonInfo.Overview
-  }
-
-  if len(seasonInfo.PosterPath) > 0 {
-    season.PosterPath = seasonInfo.PosterPath
-  }
-
-  if seasonInfo.SeasonNumber > 0 {
-    season.SeasonNumber = seasonInfo.SeasonNumber
-  }
-
-  if len(seasonInfo.AirDate) > 0 {
-    season.AirDate = seasonInfo.AirDate
-  }
-
-  if len(seasonInfo.Name) > 0 {
-    season.OriginalName = seasonInfo.Name
-  }
-
-  if seasonInfo.ID > 0 {
-    season.Tmdb_id = seasonInfo.ID
-  }
-}
-
 func loadSeasons(serie *Serie, tv *tmdb.TV) {
   println("TMDb Seasons Import Start", tv.Name)
 
@@ -168,25 +99,6 @@ func loadSeasons(serie *Serie, tv *tmdb.TV) {
   }
   println("TMDb Seasons Import Done", tv.Name)
 }
-
-func applyEpisode(e *Episode, i *tmdb.TvEpisode) {
-  if len(i.AirDate) > 0 {
-    e.AirDate = i.AirDate
-  }
-  if i.EpisodeNumber > 0 {
-    e.EpisodeNumber = i.EpisodeNumber
-  }
-  if len(i.Name) > 0 {
-    e.OriginalName = i.Name
-  }
-  if len(i.StillPath) > 0 {
-    e.StillPath = i.StillPath
-  }
-  if i.ID > 0 {
-    e.Tmdb_id = i.ID
-  }
-}
-
 func loadEpisodes(season *Season, seasonInfo *tmdb.TvSeason, tv *tmdb.TV) {
   for _, tvEpisode := range seasonInfo.Episodes {
     hasEpisode := false
@@ -219,7 +131,88 @@ func loadEpisodes(season *Season, seasonInfo *tmdb.TvSeason, tv *tmdb.TV) {
   }
 }
 
-func loadEpisode(serieId, seasonNr, episodeNr int) *tmdb.TvEpisode {
+func fetchNumber(name string) int {
+  name = strings.Trim(name, " ")
+  regex := regexp.MustCompile("[Ss]?(\\d+)")
+  ret, _ := strconv.Atoi(regex.ReplaceAllString(name, "$1"))
+  return ret
+}
+
+func applySerie(serie *Serie, info tmdb.TV) {
+  if len(info.PosterPath) > 0 {
+    serie.PosterPath = info.PosterPath
+  }
+  if len(info.FirstAirDate) > 0 {
+    serie.FirstAirDate = info.FirstAirDate
+  }
+  if info.VoteAverage > 0 {
+    serie.VoteAverage = info.VoteAverage
+  }
+  if info.VoteCount > 0 {
+    serie.VoteCount = info.VoteCount
+  }
+  if len(info.OriginalName) > 0 {
+    serie.OriginalName = info.OriginalName
+  }
+  if len(info.Overview) > 0 {
+    serie.Description = info.Overview
+  }
+  if info.ID > 0 {
+    serie.Tmdb_id = info.ID
+  }
+}
+func applySeason(season *Season, seasonInfo *tmdb.TvSeason) {
+  if len(seasonInfo.Overview) > 0 {
+    season.Description = seasonInfo.Overview
+  }
+
+  if len(seasonInfo.PosterPath) > 0 {
+    season.PosterPath = seasonInfo.PosterPath
+  }
+
+  if seasonInfo.SeasonNumber > 0 {
+    season.SeasonNumber = seasonInfo.SeasonNumber
+  }
+
+  if len(seasonInfo.AirDate) > 0 {
+    season.AirDate = seasonInfo.AirDate
+  }
+
+  if len(seasonInfo.Name) > 0 {
+    season.OriginalName = seasonInfo.Name
+  }
+
+  if seasonInfo.ID > 0 {
+    season.Tmdb_id = seasonInfo.ID
+  }
+}
+func applyEpisode(e *Episode, i *tmdb.TvEpisode) {
+  if len(i.AirDate) > 0 {
+    e.AirDate = i.AirDate
+  }
+  if i.EpisodeNumber > 0 {
+    e.EpisodeNumber = i.EpisodeNumber
+  }
+  if len(i.Name) > 0 {
+    e.OriginalName = i.Name
+  }
+  if len(i.StillPath) > 0 {
+    e.StillPath = i.StillPath
+  }
+  if i.ID > 0 {
+    e.Tmdb_id = i.ID
+  }
+}
+
+func loadSeasonFromTMDB(serieId, seasonNr int) (*tmdb.TvSeason, error) {
+  tmdn := getTmdb()
+
+  rlc.checkRequest()
+  info, err := tmdn.GetTvSeasonInfo(serieId, seasonNr, nil)
+
+  return info, err
+}
+func loadEpisodeFromTMDB(serieId, seasonNr, episodeNr int) *tmdb.TvEpisode {
   tmdn := getTmdb()
 
   rlc.checkRequest()
@@ -232,16 +225,17 @@ func loadEpisode(serieId, seasonNr, episodeNr int) *tmdb.TvEpisode {
   return episodeInfo
 }
 
-func loadSeason(serieId, seasonNr int) (*tmdb.TvSeason, error) {
+func findSerie(name string) *tmdb.TvSearchResults {
   tmdn := getTmdb()
 
   rlc.checkRequest()
-  info, err := tmdn.GetTvSeasonInfo(serieId, seasonNr, nil)
-
-  return info, err
+  result, err := tmdn.SearchTv(name, nil)
+  if err != nil {
+    println(err)
+  }
+  return result
 }
-
-func validTitle (title string) bool {
+func validTitle(title string) bool {
   name := strings.Trim(title, "? ")
   if len(name) > 0 {
     return true

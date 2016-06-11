@@ -99,7 +99,7 @@ func updateSeasons(serie *Serie, serie_data Serie) {
       println("new season! create:", serie.Name, season_data.Name)
       season.SeasonNumber = fetchNumber(season_data.Name)
       season.Name = season_data.Name
-      info, _ := loadSeason(serie.Tmdb_id, season.SeasonNumber)
+      info, _ := loadSeasonFromTMDB(serie.Tmdb_id, season.SeasonNumber)
       applySeason(&season, info)
       DB.Model(&serie).Association("Seasons").Append(&season)
     }
@@ -131,7 +131,7 @@ func updateEpisodes(serie *Serie, season *Season, season_data *Season) {
       if notExist {
         //tmdb entry does not exist
         //load tmdb
-        episodeInfo := loadEpisode(serie.Tmdb_id, season.SeasonNumber, episode.EpisodeNumber)
+        episodeInfo := loadEpisodeFromTMDB(serie.Tmdb_id, season.SeasonNumber, episode.EpisodeNumber)
         applyEpisode(&episode, episodeInfo)
         DB.Model(&season).Association("Episodes").Append(&episode)
       } else {
