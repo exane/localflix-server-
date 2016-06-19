@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	PATH     = "Z:/serien"
-	OUT_PATH = "Y:/golangWorkspace/src/github.com/exane/localflix-server-/fetch"
+	PATH     = "/media/sf_Z_DRIVE/serien"
+	OUT_PATH = "/home/tim/Workspace/src/localflix-server-/fetch"
 	OUT      = "DATA_DUMP"
 	VIDEO    = ".*[.](avi|web|mkv|mp4)$"
 	SUBTITLE = ".*[.](srt|idx|sub|sfv)$"
@@ -46,7 +46,6 @@ func fetch(file FileType) []byte {
 	series := []Serie{}
 
 	path := file.PathRead()
-
 	files, _ := file.ReadDir(path)
 
 	for _, val := range files {

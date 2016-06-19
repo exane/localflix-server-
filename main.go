@@ -1,7 +1,6 @@
 package main
 
 import (
-  _ "time"
   "net/http"
   "time"
   "os"
@@ -9,41 +8,41 @@ import (
 )
 
 func fileserver() {
-  http.ListenAndServe(
-    config.Fileserver.Url + ":" + config.Fileserver.Port,
-    http.FileServer(http.Dir(config.Fileserver.Root_directory)),
-  )
+	http.ListenAndServe(
+		config.Fileserver.Url+":"+config.Fileserver.Port,
+		http.FileServer(http.Dir(config.Fileserver.Root_directory)),
+	)
 }
 
 func server() {
-  router()
+	router()
 }
 
 var (
-  INSTALL = os.Getenv("INSTALL")
+	INSTALL = os.Getenv("INSTALL")
 )
 
 func main() {
 
-  initDb()
+	initDb()
 
-  go func() {
-    fetch.Fetch()
-    if INSTALL == "true" {
-      createTables()
-      dumpImport()
-      loadTmdb()
-    } else {
-      updateDb()
-    }
-  }()
+	go func() {
+		fetch.Fetch()
+		if INSTALL == "true" {
+			createTables()
+			dumpImport()
+			loadTmdb()
+		} else {
+			updateDb()
+		}
+	}()
 
-  defer DB.Close()
-  go fileserver()
-  go server()
-  for {
-    time.Sleep(10 * time.Second)
-  }
+	defer DB.Close()
+	go fileserver()
+	go server()
+	for {
+		time.Sleep(10 * time.Second)
+	}
 
   return
 }
