@@ -1,16 +1,20 @@
 package main
 
 import (
-  "net/http"
-  "time"
-  "os"
-  "github.com/exane/localflix-server-/fetch"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/exane/localflix-server-/fetch"
+	"github.com/exane/localflix-server-/config"
+	"github.com/exane/localflix-server-/loader"
 )
 
 func fileserver() {
+	cfg := config.LoadConfig()
 	http.ListenAndServe(
-		config.Fileserver.Url+":"+config.Fileserver.Port,
-		http.FileServer(http.Dir(config.Fileserver.Root_directory)),
+		cfg.Fileserver.URL+":"+cfg.Fileserver.Port,
+		http.FileServer(http.Dir(cfg.Fileserver.RootDirectory)),
 	)
 }
 
@@ -23,7 +27,6 @@ var (
 )
 
 func main() {
-
 	initDb()
 
 	go func() {
@@ -31,7 +34,7 @@ func main() {
 		if INSTALL == "true" {
 			createTables()
 			dumpImport()
-			loadTmdb()
+			loader.LoadTmdb()
 		} else {
 			updateDb()
 		}
@@ -43,6 +46,4 @@ func main() {
 	for {
 		time.Sleep(10 * time.Second)
 	}
-
-  return
 }
