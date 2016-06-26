@@ -5,7 +5,7 @@ import (
   "net/http"
   "time"
   "os"
-  "github.com/exane/localflix/fetch"
+  "github.com/exane/localflix-server-/fetch"
 )
 
 func fileserver() {

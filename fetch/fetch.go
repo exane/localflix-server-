@@ -9,7 +9,7 @@ import (
 
 const (
   PATH = "Z:/serien"
-  OUT_PATH = "Y:/golangWorkspace/src/github.com/exane/localflix/fetch"
+  OUT_PATH = "Y:/golangWorkspace/src/github.com/exane/localflix-server-/fetch"
   OUT = "DATA_DUMP"
   VIDEO = ".*[.](avi|web|mkv|mp4)$"
   SUBTITLE = ".*[.](srt|idx|sub|sfv)$"
