@@ -5,23 +5,25 @@ import (
 
 	"github.com/exane/localflix-server-/database"
 	"github.com/exane/localflix-server-/loader"
+	"github.com/exane/localflix-server-/loader/loaderfakes"
 	"github.com/exane/localflix-server-/mock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/ryanbradynd05/go-tmdb"
 )
 
 var _ = Describe("MoviedbLoader", func() {
 	var db *mock.DbMock
-	var series []database.Serie
+	var series []*database.Serie
 
 	BeforeEach(func() {
 		db = &mock.DbMock{}
 		db.NewRecordCall.Returns = true
 		db.NewRecordCall.GotCalled = 0
 
-		series = []database.Serie{
-			database.Serie{Name: "got"},
-			database.Serie{Name: "vikings"},
+		series = []*database.Serie{
+			&database.Serie{Name: "got"},
+			&database.Serie{Name: "vikings"},
 		}
 	})
 
@@ -46,79 +48,101 @@ var _ = Describe("MoviedbLoader", func() {
 	})
 
 	Describe("ImportTmdb", func() {
-		var tmdbMock *mock.TmdbMock
+		var tmdbMock *loaderfakes.FakeTmdbInterface
 
 		BeforeEach(func() {
-			tmdbMock = &mock.TmdbMock{}
-			tmdbMock.SearchTvCall.GotCalled = 0
-			tmdbMock.GetTvInfoCall.GotCalled = 0
+			tmdbMock = &loaderfakes.FakeTmdbInterface{}
 
-			tmdbMock.GetTvInfoCall.Returns.TV = make(map[int]interface{})
-			tmdbMock.GetTvInfoCall.Returns.TV[1] = &mock.TV{
-				Overview:     "got desc",
-				OriginalName: "got tmdb",
-				Name:         "got name",
-				ID:           1,
-				PosterPath:   "xyz",
-				VoteAverage:  10.0,
-				VoteCount:    1000,
-				FirstAirDate: "1.1.2010",
+			tmdbMock.GetTvInfoStub = func(id int, options map[string]string) (*tmdb.TV, error) {
+				var result1 *tmdb.TV
+				if id == 1 {
+					result1 = &tmdb.TV{
+						Overview:     "got desc",
+						OriginalName: "got tmdb",
+						Name:         "got name",
+						ID:           1,
+						PosterPath:   "xyz",
+						VoteAverage:  10.0,
+						VoteCount:    1000,
+						FirstAirDate: "1.1.2010",
+					}
+				}
+				if id == 2 {
+					result1 = &tmdb.TV{
+						Overview:     "",
+						OriginalName: "",
+						Name:         "",
+						ID:           2,
+						PosterPath:   "",
+						VoteAverage:  0,
+						VoteCount:    0,
+					}
+				}
+				return result1, nil
 			}
 
-			tmdbMock.GetTvInfoCall.Returns.TV[2] = &mock.TV{
-				Overview:     "vikings desc",
-				OriginalName: "vikings tmdb",
-				Name:         "vikings name",
-				ID:           2,
-				PosterPath:   "abc",
-				VoteAverage:  9.5,
-				VoteCount:    2000,
-				FirstAirDate: "1.1.2011",
-			}
+			tmdbMock.SearchTvStub = func(name string, options map[string]string) (*tmdb.TvSearchResults, error) {
+				id := 0
 
-			tmdbMock.SearchTvCall.Returns.TvSearchResults = make(map[string]interface{})
-			tmdbMock.SearchTvCall.Returns.TvSearchResults["got"] = &mock.TvSearchResults{
-				Results: []mock.SearchTVCallResult{
-					{
-						ID: 1,
+				if name == "got" {
+					id = 1
+				}
+				if name == "vikings" {
+					id = 2
+				}
+
+				result1 := &tmdb.TvSearchResults{
+					Results: []struct {
+						BackdropPath  string `json:"backdrop_path"`
+						ID            int
+						OriginalName  string   `json:"original_name"`
+						FirstAirDate  string   `json:"first_air_date"`
+						OriginCountry []string `json:"origin_country"`
+						PosterPath    string   `json:"poster_path"`
+						Popularity    float32
+						Name          string
+						VoteAverage   float32 `json:"vote_average"`
+						VoteCount     uint32  `json:"vote_count"`
+					}{
+						{ID: id},
 					},
-				},
-			}
-			tmdbMock.SearchTvCall.Returns.TvSearchResults["vikings"] = &mock.TvSearchResults{
-				Results: []mock.SearchTVCallResult{
-					{
-						ID: 2,
-					},
-				},
+				}
+				return result1, nil
 			}
 		})
 
 		It("should fetch entities from tmdb", func() {
 			loader.ImportTmdb(tmdbMock, series)
-			Expect(tmdbMock.SearchTvCall.GotCalled).To(Equal(2))
-			Expect(tmdbMock.SearchTvCall.Received[0].Name).To(Equal("got"))
-			Expect(tmdbMock.SearchTvCall.Received[1].Name).To(Equal("vikings"))
+
+			Expect(tmdbMock.SearchTvCallCount()).To(Equal(2))
+			got, _ := tmdbMock.SearchTvArgsForCall(0)
+			vikings, _ := tmdbMock.SearchTvArgsForCall(1)
+			Expect(got).To(Equal("got"))
+			Expect(vikings).To(Equal("vikings"))
 		})
 
 		It("should apply on series", func() {
 			loader.ImportTmdb(tmdbMock, series)
-			Expect(series[0].Name).To(Equal("got"))
-			Expect(series[0].TmdbId).To(Equal(1))
-			Expect(series[0].OriginalName).To(Equal("got tmdb"))
-			Expect(series[0].Description).To(Equal("got desc"))
-			Expect(series[0].PosterPath).To(Equal("xyz"))
-			Expect(series[0].VoteAverage).To(Equal(10.0))
-			Expect(series[0].VoteCount).To(Equal(1000))
-			Expect(series[0].FirstAirDate).To(Equal("1.1.2010"))
 
-			Expect(series[1].Name).To(Equal("vikings"))
-			Expect(series[1].TmdbId).To(Equal(2))
-			Expect(series[1].OriginalName).To(Equal("vikings tmdb"))
-			Expect(series[1].Description).To(Equal("vikings desc"))
-			Expect(series[1].PosterPath).To(Equal("abc"))
-			Expect(series[1].VoteAverage).To(Equal(9.5))
-			Expect(series[1].VoteCount).To(Equal(2000))
-			Expect(series[1].FirstAirDate).To(Equal("1.1.2011"))
+			got := series[0]
+			vikings := series[1]
+			Expect(got.Name).To(Equal("got"))
+			Expect(got.TmdbId).To(Equal(1))
+			Expect(got.OriginalName).To(Equal("got tmdb"))
+			Expect(got.Description).To(Equal("got desc"))
+			Expect(got.PosterPath).To(Equal("xyz"))
+			Expect(got.VoteAverage).To(Equal(float32(10.0)))
+			Expect(got.VoteCount).To(Equal(uint32(1000)))
+			Expect(got.FirstAirDate).To(Equal("1.1.2010"))
+
+			Expect(vikings.Name).To(Equal("vikings"))
+			Expect(vikings.TmdbId).To(Equal(2))
+			Expect(vikings.OriginalName).To(Equal(""))
+			Expect(vikings.Description).To(Equal(""))
+			Expect(vikings.PosterPath).To(Equal(""))
+			Expect(vikings.VoteAverage).To(Equal(float32(0)))
+			Expect(vikings.VoteCount).To(Equal(uint32(0)))
+			Expect(vikings.FirstAirDate).To(Equal(""))
 		})
 	})
 })

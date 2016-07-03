@@ -30,7 +30,7 @@ type databaseInterface interface {
 	NewRecord(interface{}) bool
 }
 
-func ImportData(db databaseInterface, series []database.Serie) error {
+func ImportData(db databaseInterface, series []*database.Serie) error {
 	for _, val := range series {
 		db.NewRecord(val)
 	}
@@ -42,7 +42,7 @@ type tmdbInterface interface {
 	GetTvInfo(id int, options map[string]string) (*tmdb.TV, error)
 }
 
-func ImportTmdb(t tmdbInterface, series []database.Serie) {
+func ImportTmdb(t tmdbInterface, series []*database.Serie) {
 	for _, serie := range series {
 		result, err := t.SearchTv(serie.Name, nil)
 		if err != nil {
@@ -53,7 +53,7 @@ func ImportTmdb(t tmdbInterface, series []database.Serie) {
 			panic("error")
 		}
 
-		applySerie(&serie, tvInfo)
+		applySerie(serie, tvInfo)
 	}
 }
 
@@ -65,27 +65,6 @@ func applySerie(serie *database.Serie, info *tmdb.TV) {
 	serie.VoteAverage = info.VoteAverage
 	serie.VoteCount = info.VoteCount
 	serie.FirstAirDate = info.FirstAirDate
-	//if len(info.PosterPath) > 0 {
-	//serie.PosterPath = info.PosterPath
-	//}
-	//if len(info.FirstAirDate) > 0 {
-	//serie.FirstAirDate = info.FirstAirDate
-	//}
-	//if info.VoteAverage > 0 {
-	//serie.VoteAverage = info.VoteAverage
-	//}
-	//if info.VoteCount > 0 {
-	//serie.VoteCount = info.VoteCount
-	//}
-	//if len(info.OriginalName) > 0 {
-	//serie.OriginalName = info.OriginalName
-	//}
-	//if len(info.Overview) > 0 {
-	//serie.Description = info.Overview
-	//}
-	//if info.ID > 0 {
-	//serie.Tmdb_id = info.ID
-	//}
 }
 
 func loadSeries() {
