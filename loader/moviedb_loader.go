@@ -3,9 +3,9 @@ package loader
 import (
 	"strings"
 
-	"github.com/exane/localflix-server-/RequestLimitCheck"
 	"github.com/exane/localflix-server-/config"
 	"github.com/exane/localflix-server-/database"
+	"github.com/exane/localflix-server-/request_limit_check"
 	"github.com/ryanbradynd05/go-tmdb"
 )
 
