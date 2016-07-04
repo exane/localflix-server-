@@ -49,10 +49,12 @@ func ImportTmdb(t tmdbInterface, series []*database.Serie) {
 }
 
 func loadSerie(t tmdbInterface, name string) *tmdb.TV {
+	CheckRequest()
 	result, err := t.SearchTv(name, nil)
 	if err != nil {
 		panic("error searchtv")
 	}
+	CheckRequest()
 	tvInfo, err := t.GetTvInfo(result.Results[0].ID, nil)
 	if err != nil {
 		panic("error getvinfo")

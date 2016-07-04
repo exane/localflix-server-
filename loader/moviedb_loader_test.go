@@ -1,6 +1,7 @@
 package loader_test
 
 import (
+	"errors"
 	"reflect"
 
 	"github.com/exane/localflix-server-/database"
@@ -51,9 +52,12 @@ var _ = Describe("MoviedbLoader", func() {
 		var tmdbMock *loaderfakes.FakeTmdbInterface
 
 		BeforeEach(func() {
+			loader.IsTesting = true
 			tmdbMock = &loaderfakes.FakeTmdbInterface{}
-
 			tmdbMock.GetTvInfoStub = func(id int, options map[string]string) (*tmdb.TV, error) {
+				if loader.Requests() > loader.LIMIT_REQUEST {
+					return nil, errors.New("tmdb limit reached")
+				}
 				var result1 *tmdb.TV
 				if id == 1 {
 					result1 = &tmdb.TV{
@@ -83,6 +87,9 @@ var _ = Describe("MoviedbLoader", func() {
 
 			tmdbMock.SearchTvStub = func(name string, options map[string]string) (*tmdb.TvSearchResults, error) {
 				id := 0
+				if loader.Requests() > loader.LIMIT_REQUEST {
+					return nil, errors.New("tmdb limit reached")
+				}
 
 				if name == "got" {
 					id = 1
@@ -109,6 +116,24 @@ var _ = Describe("MoviedbLoader", func() {
 				}
 				return result1, nil
 			}
+		})
+
+		It("should not panic", func() {
+			series = nil
+			for i := 0; i < 10; i++ {
+				series = append(series, &database.Serie{Name: "got"})
+			}
+			Expect(func() {
+				loader.ImportTmdb(tmdbMock, series)
+			}).ToNot(Panic())
+
+			series = nil
+			for i := 0; i < 50; i++ {
+				series = append(series, &database.Serie{Name: "got"})
+			}
+			Expect(func() {
+				loader.ImportTmdb(tmdbMock, series)
+			}).ToNot(Panic())
 		})
 
 		It("should fetch entities from tmdb", func() {
