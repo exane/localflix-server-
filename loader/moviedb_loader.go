@@ -5,6 +5,7 @@ import (
 
 	"github.com/exane/localflix-server-/config"
 	"github.com/exane/localflix-server-/database"
+	"github.com/jinzhu/gorm"
 	"github.com/ryanbradynd05/go-tmdb"
 )
 
@@ -27,6 +28,7 @@ func LoadTmdb() error {
 
 type databaseInterface interface {
 	NewRecord(interface{}) bool
+	Save(interface{}) *gorm.DB
 }
 
 func ImportData(db databaseInterface, series []*database.Serie) error {
@@ -46,6 +48,10 @@ func ImportTmdb(t tmdbInterface, series []*database.Serie) {
 		tvInfo := loadSerie(t, serie.Name)
 		applySerie(serie, tvInfo)
 	}
+}
+
+func UpdateDB(db databaseInterface, series []*database.Serie) {
+
 }
 
 func loadSerie(t tmdbInterface, name string) *tmdb.TV {

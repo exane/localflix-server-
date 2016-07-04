@@ -35,10 +35,13 @@ func LimitReached() bool {
 
 func CheckRequest() {
 	if LimitReached() {
-		_ = "breakpoint"
-		println("TMDb Request Limit Wait: ", Time().String())
+		if !IsTesting {
+			println("TMDb Request Limit Wait: ", Time().String())
+		}
 		Wait()
-		println("TMDb Request Limit Continue")
+		if !IsTesting {
+			println("TMDb Request Limit Continue")
+		}
 		Reset()
 	}
 	requests++

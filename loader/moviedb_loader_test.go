@@ -7,20 +7,19 @@ import (
 	"github.com/exane/localflix-server-/database"
 	"github.com/exane/localflix-server-/loader"
 	"github.com/exane/localflix-server-/loader/loaderfakes"
-	"github.com/exane/localflix-server-/mock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/ryanbradynd05/go-tmdb"
 )
 
 var _ = Describe("MoviedbLoader", func() {
-	var db *mock.DbMock
+	var db *loaderfakes.FakeDatabaseInterface
 	var series []*database.Serie
+	var tmdbMock *loaderfakes.FakeTmdbInterface
 
 	BeforeEach(func() {
-		db = &mock.DbMock{}
-		db.NewRecordCall.Returns = true
-		db.NewRecordCall.GotCalled = 0
+		db = &loaderfakes.FakeDatabaseInterface{}
+		db.NewRecordReturns(true)
 
 		series = []*database.Serie{
 			&database.Serie{Name: "got"},
@@ -36,20 +35,18 @@ var _ = Describe("MoviedbLoader", func() {
 
 		It("should call db.NewRecord", func() {
 			loader.ImportData(db, series)
-			Expect(db.NewRecordCall.GotCalled).ToNot(Equal(0))
+			Expect(db.NewRecordCallCount()).ToNot(Equal(0))
 		})
 
 		It("should create 2 series", func() {
 			loader.ImportData(db, series)
-			Expect(db.NewRecordCall.GotCalled).To(Equal(2))
-			Expect(len(db.NewRecordCall.Received)).To(Equal(2))
-			Expect(reflect.DeepEqual(db.NewRecordCall.Received[0], series[0])).To(Equal(true))
-			Expect(reflect.DeepEqual(db.NewRecordCall.Received[1], series[1])).To(Equal(true))
+			Expect(db.NewRecordCallCount()).To(Equal(2))
+			Expect(reflect.DeepEqual(db.NewRecordArgsForCall(0), series[0])).To(Equal(true))
+			Expect(reflect.DeepEqual(db.NewRecordArgsForCall(1), series[1])).To(Equal(true))
 		})
 	})
 
 	Describe("ImportTmdb", func() {
-		var tmdbMock *loaderfakes.FakeTmdbInterface
 
 		BeforeEach(func() {
 			loader.IsTesting = true
@@ -168,6 +165,14 @@ var _ = Describe("MoviedbLoader", func() {
 			Expect(vikings.VoteAverage).To(Equal(float32(0)))
 			Expect(vikings.VoteCount).To(Equal(uint32(0)))
 			Expect(vikings.FirstAirDate).To(Equal(""))
+		})
+	})
+
+	Describe("UpdateDB", func() {
+		XIt("updated all entries", func() {
+			loader.ImportData(db, series)
+			loader.ImportTmdb(tmdbMock, series)
+			loader.UpdateDB(db, series)
 		})
 	})
 })
