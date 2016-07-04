@@ -51,7 +51,7 @@ func ImportTmdb(t tmdbInterface, series []*database.Serie) {
 }
 
 func UpdateDB(db databaseInterface, series []*database.Serie) {
-
+	db.Save(series)
 }
 
 func loadSerie(t tmdbInterface, name string) *tmdb.TV {

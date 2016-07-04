@@ -25,6 +25,71 @@ var _ = Describe("MoviedbLoader", func() {
 			&database.Serie{Name: "got"},
 			&database.Serie{Name: "vikings"},
 		}
+
+		loader.IsTesting = true
+		tmdbMock = &loaderfakes.FakeTmdbInterface{}
+		tmdbMock.GetTvInfoStub = func(id int, options map[string]string) (*tmdb.TV, error) {
+			if loader.Requests() > loader.LIMIT_REQUEST {
+				return nil, errors.New("tmdb limit reached")
+			}
+			var result1 *tmdb.TV
+			if id == 1 {
+				result1 = &tmdb.TV{
+					Overview:     "got desc",
+					OriginalName: "got tmdb",
+					Name:         "got name",
+					ID:           1,
+					PosterPath:   "xyz",
+					VoteAverage:  10.0,
+					VoteCount:    1000,
+					FirstAirDate: "1.1.2010",
+				}
+			}
+			if id == 2 {
+				result1 = &tmdb.TV{
+					Overview:     "",
+					OriginalName: "",
+					Name:         "",
+					ID:           2,
+					PosterPath:   "",
+					VoteAverage:  0,
+					VoteCount:    0,
+				}
+			}
+			return result1, nil
+		}
+
+		tmdbMock.SearchTvStub = func(name string, options map[string]string) (*tmdb.TvSearchResults, error) {
+			id := 0
+			if loader.Requests() > loader.LIMIT_REQUEST {
+				return nil, errors.New("tmdb limit reached")
+			}
+
+			if name == "got" {
+				id = 1
+			}
+			if name == "vikings" {
+				id = 2
+			}
+
+			result1 := &tmdb.TvSearchResults{
+				Results: []struct {
+					BackdropPath  string `json:"backdrop_path"`
+					ID            int
+					OriginalName  string   `json:"original_name"`
+					FirstAirDate  string   `json:"first_air_date"`
+					OriginCountry []string `json:"origin_country"`
+					PosterPath    string   `json:"poster_path"`
+					Popularity    float32
+					Name          string
+					VoteAverage   float32 `json:"vote_average"`
+					VoteCount     uint32  `json:"vote_count"`
+				}{
+					{ID: id},
+				},
+			}
+			return result1, nil
+		}
 	})
 
 	Describe("ImportData", func() {
@@ -47,74 +112,6 @@ var _ = Describe("MoviedbLoader", func() {
 	})
 
 	Describe("ImportTmdb", func() {
-
-		BeforeEach(func() {
-			loader.IsTesting = true
-			tmdbMock = &loaderfakes.FakeTmdbInterface{}
-			tmdbMock.GetTvInfoStub = func(id int, options map[string]string) (*tmdb.TV, error) {
-				if loader.Requests() > loader.LIMIT_REQUEST {
-					return nil, errors.New("tmdb limit reached")
-				}
-				var result1 *tmdb.TV
-				if id == 1 {
-					result1 = &tmdb.TV{
-						Overview:     "got desc",
-						OriginalName: "got tmdb",
-						Name:         "got name",
-						ID:           1,
-						PosterPath:   "xyz",
-						VoteAverage:  10.0,
-						VoteCount:    1000,
-						FirstAirDate: "1.1.2010",
-					}
-				}
-				if id == 2 {
-					result1 = &tmdb.TV{
-						Overview:     "",
-						OriginalName: "",
-						Name:         "",
-						ID:           2,
-						PosterPath:   "",
-						VoteAverage:  0,
-						VoteCount:    0,
-					}
-				}
-				return result1, nil
-			}
-
-			tmdbMock.SearchTvStub = func(name string, options map[string]string) (*tmdb.TvSearchResults, error) {
-				id := 0
-				if loader.Requests() > loader.LIMIT_REQUEST {
-					return nil, errors.New("tmdb limit reached")
-				}
-
-				if name == "got" {
-					id = 1
-				}
-				if name == "vikings" {
-					id = 2
-				}
-
-				result1 := &tmdb.TvSearchResults{
-					Results: []struct {
-						BackdropPath  string `json:"backdrop_path"`
-						ID            int
-						OriginalName  string   `json:"original_name"`
-						FirstAirDate  string   `json:"first_air_date"`
-						OriginCountry []string `json:"origin_country"`
-						PosterPath    string   `json:"poster_path"`
-						Popularity    float32
-						Name          string
-						VoteAverage   float32 `json:"vote_average"`
-						VoteCount     uint32  `json:"vote_count"`
-					}{
-						{ID: id},
-					},
-				}
-				return result1, nil
-			}
-		})
-
 		It("should not panic", func() {
 			series = nil
 			for i := 0; i < 10; i++ {
@@ -169,10 +166,15 @@ var _ = Describe("MoviedbLoader", func() {
 	})
 
 	Describe("UpdateDB", func() {
-		XIt("updated all entries", func() {
-			loader.ImportData(db, series)
-			loader.ImportTmdb(tmdbMock, series)
+		It("updated all entries", func() {
+			expected_result := []*database.Serie{
+				&database.Serie{Name: "got"},
+				&database.Serie{Name: "vikings"},
+			}
+
 			loader.UpdateDB(db, series)
+			Expect(db.SaveCallCount()).To(Equal(1))
+			Expect(db.SaveArgsForCall(0)).To(Equal(expected_result))
 		})
 	})
 })
