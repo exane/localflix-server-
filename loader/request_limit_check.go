@@ -1,4 +1,4 @@
-package RequestLimitCheck
+package loader
 
 import "time"
 

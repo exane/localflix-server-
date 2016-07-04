@@ -5,7 +5,6 @@ import (
 
 	"github.com/exane/localflix-server-/config"
 	"github.com/exane/localflix-server-/database"
-	"github.com/exane/localflix-server-/request_limit_check"
 	"github.com/ryanbradynd05/go-tmdb"
 )
 
@@ -16,7 +15,7 @@ var seriesDump []database.Serie
 func getTmdb() *tmdb.TMDb {
 	if tmdn == nil {
 		tmdn = tmdb.Init(config.LoadConfig().TMDb.ApiKey)
-		RequestLimitCheck.Reset()
+		Reset()
 	}
 	return tmdn
 }
@@ -44,17 +43,21 @@ type tmdbInterface interface {
 
 func ImportTmdb(t tmdbInterface, series []*database.Serie) {
 	for _, serie := range series {
-		result, err := t.SearchTv(serie.Name, nil)
-		if err != nil {
-			panic("error")
-		}
-		tvInfo, err := t.GetTvInfo(result.Results[0].ID, nil)
-		if err != nil {
-			panic("error")
-		}
-
+		tvInfo := loadSerie(t, serie.Name)
 		applySerie(serie, tvInfo)
 	}
+}
+
+func loadSerie(t tmdbInterface, name string) *tmdb.TV {
+	result, err := t.SearchTv(name, nil)
+	if err != nil {
+		panic("error searchtv")
+	}
+	tvInfo, err := t.GetTvInfo(result.Results[0].ID, nil)
+	if err != nil {
+		panic("error getvinfo")
+	}
+	return tvInfo
 }
 
 func applySerie(serie *database.Serie, info *tmdb.TV) {
@@ -74,35 +77,6 @@ func loadSeries() {
 	//loadSerie(val.Name)
 	//}
 	//println("TMDb Series Import Done")
-}
-
-func loadSerie(title string) {
-	//tmdn := getTmdb()
-
-	//serie := database.Serie{Name: title}
-	//DB.Where("Name = ?", title).First(&serie)
-
-	//rlc.checkRequest()
-	//searchTv, err := tmdn.SearchTv(title, nil)
-
-	//if err != nil {
-	//println("@@@@@@@@@@@@@@@")
-	//println(err.Error())
-	//println("@@@@@@@@@@@@@@@")
-	//}
-
-	//if len(searchTv.Results) == 0 {
-	//return
-	//}
-	//rlc.checkRequest()
-	//tv, _ := tmdn.GetTvInfo(searchTv.Results[0].ID, nil)
-	//applySerie(&serie, *tv)
-
-	////fetch season data
-	//DB.Model(serie).Related(&serie.Seasons)
-	//loadSeasons(&serie, tv)
-
-	//DB.Save(&serie)
 }
 
 func findSerie(name string) *tmdb.TvSearchResults {
