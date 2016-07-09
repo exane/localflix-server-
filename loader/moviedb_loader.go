@@ -45,7 +45,7 @@ func ImportTmdb(t tmdbInterface, series []*database.Serie) {
 	for _, serie := range series {
 		tvInfo := loadSerie(t, serie.Name)
 		applyTmdbIds(serie, tvInfo)
-		applySerie(serie, tvInfo)
+		applySerieData(serie, tvInfo)
 
 		loadSeasons(t, serie)
 	}
@@ -81,7 +81,7 @@ func loadSerie(t tmdbInterface, name string) *tmdb.TV {
 	return tvInfo
 }
 
-func applySerie(serie *database.Serie, info *tmdb.TV) {
+func applySerieData(serie *database.Serie, info *tmdb.TV) {
 	serie.OriginalName = info.OriginalName
 	serie.Description = info.Overview
 	serie.PosterPath = info.PosterPath
@@ -147,32 +147,6 @@ func fetchNumber(name string) int {
 	regex := regexp.MustCompile("[Ss]?(\\d+)")
 	ret, _ := strconv.Atoi(regex.ReplaceAllString(name, "$1"))
 	return ret
-}
-
-func applySeason(season *database.Season, seasonInfo *tmdb.TvSeason) {
-	//if len(seasonInfo.Overview) > 0 {
-	//season.Description = seasonInfo.Overview
-	//}
-
-	//if len(seasonInfo.PosterPath) > 0 {
-	//season.PosterPath = seasonInfo.PosterPath
-	//}
-
-	//if seasonInfo.SeasonNumber > 0 {
-	//season.SeasonNumber = seasonInfo.SeasonNumber
-	//}
-
-	//if len(seasonInfo.AirDate) > 0 {
-	//season.AirDate = seasonInfo.AirDate
-	//}
-
-	//if len(seasonInfo.Name) > 0 {
-	//season.OriginalName = seasonInfo.Name
-	//}
-
-	//if seasonInfo.ID > 0 {
-	//season.Tmdb_id = seasonInfo.ID
-	//}
 }
 
 func applyEpisode(e *database.Episode, i *tmdb.TvEpisode) {
