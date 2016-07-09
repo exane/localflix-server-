@@ -11,6 +11,7 @@ var (
 	started   time.Time
 	requests  int
 	IsTesting bool = false
+	Requested map[string]int
 )
 
 func Time() time.Duration {
@@ -33,7 +34,7 @@ func LimitReached() bool {
 	return requests >= LIMIT_REQUEST
 }
 
-func CheckRequest() {
+func CheckRequest(name string) {
 	if LimitReached() {
 		if !IsTesting {
 			println("TMDb Request Limit Wait: ", Time().String())
@@ -44,6 +45,8 @@ func CheckRequest() {
 		}
 		Reset()
 	}
+
+	Requested[name]++
 	requests++
 }
 

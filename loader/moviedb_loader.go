@@ -1,6 +1,8 @@
 package loader
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/exane/localflix-server-/config"
@@ -21,14 +23,15 @@ func getTmdb() *tmdb.TMDb {
 	return tmdn
 }
 
-// Requires: Tmdb API, DB Adapter and json dump of the series
-func LoadTmdb() error {
-	return nil
-}
-
 type databaseInterface interface {
 	NewRecord(interface{}) bool
 	Save(interface{}) *gorm.DB
+}
+
+type tmdbInterface interface {
+	SearchTv(name string, options map[string]string) (*tmdb.TvSearchResults, error)
+	GetTvInfo(showid int, options map[string]string) (*tmdb.TV, error)
+	GetTvSeasonInfo(showid, seasonid int, options map[string]string) (*tmdb.TvSeason, error)
 }
 
 func ImportData(db databaseInterface, series []*database.Serie) error {
@@ -38,15 +41,13 @@ func ImportData(db databaseInterface, series []*database.Serie) error {
 	return nil
 }
 
-type tmdbInterface interface {
-	SearchTv(string, map[string]string) (*tmdb.TvSearchResults, error)
-	GetTvInfo(id int, options map[string]string) (*tmdb.TV, error)
-}
-
 func ImportTmdb(t tmdbInterface, series []*database.Serie) {
 	for _, serie := range series {
 		tvInfo := loadSerie(t, serie.Name)
+		applyTmdbIds(serie, tvInfo)
 		applySerie(serie, tvInfo)
+
+		loadSeasons(t, serie)
 	}
 }
 
@@ -54,13 +55,25 @@ func UpdateDB(db databaseInterface, series []*database.Serie) {
 	db.Save(series)
 }
 
+func applyTmdbIds(serie *database.Serie, info *tmdb.TV) {
+	serie.TmdbId = info.ID
+	applyTmdbIdsToSeasons(serie, info)
+}
+
+func applyTmdbIdsToSeasons(serie *database.Serie, info *tmdb.TV) {
+	for _, season := range serie.Seasons {
+		seasonNr := fetchNumber(season.Name)
+		season.TmdbId = getTmdbIdFromSeasons(seasonNr, info)
+	}
+}
+
 func loadSerie(t tmdbInterface, name string) *tmdb.TV {
-	CheckRequest()
+	CheckRequest("SearchTv")
 	result, err := t.SearchTv(name, nil)
 	if err != nil {
 		panic("error searchtv")
 	}
-	CheckRequest()
+	CheckRequest("GetTvInfo")
 	tvInfo, err := t.GetTvInfo(result.Results[0].ID, nil)
 	if err != nil {
 		panic("error getvinfo")
@@ -70,12 +83,27 @@ func loadSerie(t tmdbInterface, name string) *tmdb.TV {
 
 func applySerie(serie *database.Serie, info *tmdb.TV) {
 	serie.OriginalName = info.OriginalName
-	serie.TmdbId = info.ID
 	serie.Description = info.Overview
 	serie.PosterPath = info.PosterPath
 	serie.VoteAverage = info.VoteAverage
 	serie.VoteCount = info.VoteCount
 	serie.FirstAirDate = info.FirstAirDate
+}
+
+func loadSeasons(t tmdbInterface, serie *database.Serie) {
+	for _, season := range serie.Seasons {
+		CheckRequest("GetTvSeasonInfo")
+		t.GetTvSeasonInfo(serie.TmdbId, season.TmdbId, nil)
+	}
+}
+
+func getTmdbIdFromSeasons(seasonNumber int, info *tmdb.TV) int {
+	for _, val := range info.Seasons {
+		if val.SeasonNumber == seasonNumber {
+			return val.ID
+		}
+	}
+	return -1
 }
 
 func loadSeries() {
@@ -100,11 +128,10 @@ func findSerie(name string) *tmdb.TvSearchResults {
 }
 
 func fetchNumber(name string) int {
-	//name = strings.Trim(name, " ")
-	//regex := regexp.MustCompile("[Ss]?(\\d+)")
-	//ret, _ := strconv.Atoi(regex.ReplaceAllString(name, "$1"))
-	//return ret
-	return 0
+	name = strings.Trim(name, " ")
+	regex := regexp.MustCompile("[Ss]?(\\d+)")
+	ret, _ := strconv.Atoi(regex.ReplaceAllString(name, "$1"))
+	return ret
 }
 
 func applySeason(season *database.Season, seasonInfo *tmdb.TvSeason) {
@@ -131,41 +158,6 @@ func applySeason(season *database.Season, seasonInfo *tmdb.TvSeason) {
 	//if seasonInfo.ID > 0 {
 	//season.Tmdb_id = seasonInfo.ID
 	//}
-}
-
-func loadSeasons(serie *database.Serie, tv *tmdb.TV) {
-	//println("TMDb Seasons Import Start", tv.Name)
-
-	//for _, tvSeason := range tv.Seasons {
-	//hasSeason := false
-
-	//rlc.checkRequest()
-	//seasonInfo, err := tmdn.GetTvSeasonInfo(tv.ID, tvSeason.SeasonNumber, nil)
-
-	//for _, season := range serie.Seasons {
-	//nr := fetchNumber(season.Name)
-
-	//if tvSeason.SeasonNumber != nr {
-	//continue
-	//}
-
-	//hasSeason = true
-	//if err != nil {
-	//println(err.Error())
-	//}
-	////load episodes
-	//DB.Model(season).Related(&season.Episodes)
-	//loadEpisodes(season, seasonInfo, tv)
-	//applySeason(season, seasonInfo)
-	//}
-	//if !hasSeason {
-	//s := database.Season{}
-	//applySeason(&s, seasonInfo)
-	//serie.Seasons = append(serie.Seasons, &s)
-	//s.Missing = true
-	//}
-	//}
-	//println("TMDb Seasons Import Done", tv.Name)
 }
 
 func applyEpisode(e *database.Episode, i *tmdb.TvEpisode) {
