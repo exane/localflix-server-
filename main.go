@@ -5,8 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/exane/localflix-server-/fetch"
 	"github.com/exane/localflix-server-/config"
+	"github.com/exane/localflix-server-/database"
+	"github.com/exane/localflix-server-/fetch"
 	"github.com/exane/localflix-server-/loader"
 )
 
@@ -27,20 +28,20 @@ var (
 )
 
 func main() {
-	initDb()
+	database.InitDb()
 
 	go func() {
 		fetch.Fetch()
 		if INSTALL == "true" {
-			createTables()
-			dumpImport()
-			loader.LoadTmdb()
+			database.CreateTables()
+			series := database.DumpImport()
+			loader.Import(&database.DB, series)
 		} else {
-			updateDb()
+			database.UpdateDb()
 		}
 	}()
 
-	defer DB.Close()
+	defer database.DB.Close()
 	go fileserver()
 	go server()
 	for {

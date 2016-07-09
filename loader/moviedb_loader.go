@@ -23,6 +23,11 @@ func getTmdb() *tmdb.TMDb {
 	return tmdn
 }
 
+func Import(db databaseInterface, series []*database.Serie) {
+	ImportData(db, series)
+	ImportTmdb(getTmdb(), series)
+}
+
 type databaseInterface interface {
 	NewRecord(interface{}) bool
 	Save(interface{}) *gorm.DB
@@ -124,7 +129,7 @@ func getTmdbIdFromSeasons(seasonNumber int, info *tmdb.TV) int {
 	return -1
 }
 
-func findSerie(name string) *tmdb.TvSearchResults {
+func FindSerie(name string) *tmdb.TvSearchResults {
 	//tmdn := getTmdb()
 
 	//rlc.checkRequest()
@@ -169,7 +174,7 @@ func loadEpisodes(t tmdbInterface, showID int, season *database.Season) {
 	}
 }
 
-func validTitle(title string) bool {
+func ValidTitle(title string) bool {
 	name := strings.Trim(title, "? ")
 	if len(name) > 0 {
 		return true

@@ -13,7 +13,7 @@ import (
 var DB gorm.DB
 var cfg *config.Config
 
-func initDb() {
+func InitDb() {
 	cfg = config.LoadConfig()
 	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@/%s?charset=utf8&parseTime=True&loc=Local", cfg.Database.Root, cfg.Database.Password, cfg.Database.Db))
 	DB = *db
@@ -24,28 +24,30 @@ func initDb() {
 	}
 }
 
-func createTables() {
+func CreateTables() {
 	DB.DropTableIfExists(Episode{}, Serie{}, Season{}, Subtitle{})
 	DB.CreateTable(Episode{}, Serie{}, Season{}, Subtitle{})
 }
 
-func dumpImport() {
-	data := loadDump("./fetch/DATA_DUMP.json")
+func DumpImport() []*Serie {
+	data := LoadDump("./fetch/DATA_DUMP.json")
 
 	for _, val := range data {
 		DB.Create(&val)
 	}
+
+	return data
 }
 
-func loadDump(file string) []Serie {
+func LoadDump(file string) []*Serie {
 	js, _ := ioutil.ReadFile(file)
-	data := []Serie{}
+	data := []*Serie{}
 	json.Unmarshal(js, &data)
 	return data
 }
 
-func updateDb() {
-	data := loadDump("./fetch/DATA_DUMP.json")
+func UpdateDb() {
+	data := LoadDump("./fetch/DATA_DUMP.json")
 
 	for _, serie_data := range data {
 		serie := Serie{}
@@ -60,7 +62,7 @@ func updateDb() {
 	}
 }
 
-func updateSeasons(serie *Serie, serie_data Serie) {
+func updateSeasons(serie *Serie, serie_data *Serie) {
 	for _, season_data := range serie_data.Seasons {
 		season := Season{}
 		notFound := DB.Where("serie_id = ? and name = ?", serie.ID, season_data.Name).Find(&season).RecordNotFound()

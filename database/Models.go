@@ -59,7 +59,7 @@ func (s *Serie) seasons() *Serie {
 	return serie
 }
 
-func allSeries() []Serie {
+func AllSeries() []Serie {
 	series := []Serie{}
 	DB.Find(&series)
 	return series
