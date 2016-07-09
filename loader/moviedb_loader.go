@@ -32,6 +32,7 @@ type tmdbInterface interface {
 	SearchTv(name string, options map[string]string) (*tmdb.TvSearchResults, error)
 	GetTvInfo(showid int, options map[string]string) (*tmdb.TV, error)
 	GetTvSeasonInfo(showid, seasonid int, options map[string]string) (*tmdb.TvSeason, error)
+	GetTvEpisodeInfo(showID, seasonNum, episodeNum int, options map[string]string) (*tmdb.TvEpisode, error)
 }
 
 func ImportData(db databaseInterface, series []*database.Serie) error {
@@ -98,6 +99,8 @@ func loadSeasons(t tmdbInterface, serie *database.Serie) {
 			panic("GetTvSeasonInfo error")
 		}
 		applySeasonData(seasonInfo, season)
+
+		loadEpisodes(t, serie.TmdbId, season)
 	}
 }
 
@@ -119,15 +122,6 @@ func getTmdbIdFromSeasons(seasonNumber int, info *tmdb.TV) int {
 		}
 	}
 	return -1
-}
-
-func loadSeries() {
-	//println("TMDb Series Import Start")
-
-	//for _, val := range seriesDump {
-	//loadSerie(val.Name)
-	//}
-	//println("TMDb Series Import Done")
 }
 
 func findSerie(name string) *tmdb.TvSearchResults {
@@ -167,50 +161,12 @@ func applyEpisode(e *database.Episode, i *tmdb.TvEpisode) {
 	//}
 }
 
-func loadEpisodes(season *database.Season, seasonInfo *tmdb.TvSeason, tv *tmdb.TV) {
-	//for _, tvEpisode := range seasonInfo.Episodes {
-	//hasEpisode := false
-
-	//rlc.checkRequest()
-	//episodeInfo, err := tmdn.GetTvEpisodeInfo(tv.ID, tvEpisode.SeasonNumber, tvEpisode.EpisodeNumber, nil)
-
-	//if err != nil {
-	//println(err.Error())
-	//println(tv.Name, tvEpisode.SeasonNumber, tvEpisode.EpisodeNumber)
-	//}
-
-	//for _, episode := range season.Episodes {
-	//nr := fetchNumber(episode.Name)
-	//if nr != tvEpisode.EpisodeNumber {
-	//continue
-	//}
-
-	//applyEpisode(episode, episodeInfo)
-	////episode.Missing = false
-
-	//hasEpisode = true
-	//}
-	//if !hasEpisode {
-	//e := database.Episode{}
-	//applyEpisode(&e, episodeInfo)
-	//e.Missing = true
-	//season.Episodes = append(season.Episodes, &e)
-	//}
-	//}
-}
-
-func loadEpisode(serieId, seasonNr, episodeNr int) *tmdb.TvEpisode {
-	return nil
-	//tmdn := getTmdb()
-
-	//rlc.checkRequest()
-	//episodeInfo, err := tmdn.GetTvEpisodeInfo(serieId, seasonNr, episodeNr, nil)
-
-	//if err != nil {
-	//println(err)
-	//}
-
-	//return episodeInfo
+func loadEpisodes(t tmdbInterface, showID int, season *database.Season) {
+	for _, episode := range season.Episodes {
+		episodeNum := fetchNumber(episode.Name)
+		CheckRequest("GetTvEpisodeInfo")
+		t.GetTvEpisodeInfo(showID, season.SeasonNumber, episodeNum, nil)
+	}
 }
 
 func loadSeason(serieId, seasonNr int) (*tmdb.TvSeason, error) {

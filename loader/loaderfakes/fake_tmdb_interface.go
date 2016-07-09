@@ -39,6 +39,18 @@ type FakeTmdbInterface struct {
 		result1 *tmdb.TvSeason
 		result2 error
 	}
+	GetTvEpisodeInfoStub        func(showID, seasonNum, episodeNum int, options map[string]string) (*tmdb.TvEpisode, error)
+	getTvEpisodeInfoMutex       sync.RWMutex
+	getTvEpisodeInfoArgsForCall []struct {
+		showID     int
+		seasonNum  int
+		episodeNum int
+		options    map[string]string
+	}
+	getTvEpisodeInfoReturns struct {
+		result1 *tmdb.TvEpisode
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -149,6 +161,43 @@ func (fake *FakeTmdbInterface) GetTvSeasonInfoReturns(result1 *tmdb.TvSeason, re
 	}{result1, result2}
 }
 
+func (fake *FakeTmdbInterface) GetTvEpisodeInfo(showID int, seasonNum int, episodeNum int, options map[string]string) (*tmdb.TvEpisode, error) {
+	fake.getTvEpisodeInfoMutex.Lock()
+	fake.getTvEpisodeInfoArgsForCall = append(fake.getTvEpisodeInfoArgsForCall, struct {
+		showID     int
+		seasonNum  int
+		episodeNum int
+		options    map[string]string
+	}{showID, seasonNum, episodeNum, options})
+	fake.recordInvocation("GetTvEpisodeInfo", []interface{}{showID, seasonNum, episodeNum, options})
+	fake.getTvEpisodeInfoMutex.Unlock()
+	if fake.GetTvEpisodeInfoStub != nil {
+		return fake.GetTvEpisodeInfoStub(showID, seasonNum, episodeNum, options)
+	} else {
+		return fake.getTvEpisodeInfoReturns.result1, fake.getTvEpisodeInfoReturns.result2
+	}
+}
+
+func (fake *FakeTmdbInterface) GetTvEpisodeInfoCallCount() int {
+	fake.getTvEpisodeInfoMutex.RLock()
+	defer fake.getTvEpisodeInfoMutex.RUnlock()
+	return len(fake.getTvEpisodeInfoArgsForCall)
+}
+
+func (fake *FakeTmdbInterface) GetTvEpisodeInfoArgsForCall(i int) (int, int, int, map[string]string) {
+	fake.getTvEpisodeInfoMutex.RLock()
+	defer fake.getTvEpisodeInfoMutex.RUnlock()
+	return fake.getTvEpisodeInfoArgsForCall[i].showID, fake.getTvEpisodeInfoArgsForCall[i].seasonNum, fake.getTvEpisodeInfoArgsForCall[i].episodeNum, fake.getTvEpisodeInfoArgsForCall[i].options
+}
+
+func (fake *FakeTmdbInterface) GetTvEpisodeInfoReturns(result1 *tmdb.TvEpisode, result2 error) {
+	fake.GetTvEpisodeInfoStub = nil
+	fake.getTvEpisodeInfoReturns = struct {
+		result1 *tmdb.TvEpisode
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeTmdbInterface) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -158,6 +207,8 @@ func (fake *FakeTmdbInterface) Invocations() map[string][][]interface{} {
 	defer fake.getTvInfoMutex.RUnlock()
 	fake.getTvSeasonInfoMutex.RLock()
 	defer fake.getTvSeasonInfoMutex.RUnlock()
+	fake.getTvEpisodeInfoMutex.RLock()
+	defer fake.getTvEpisodeInfoMutex.RUnlock()
 	return fake.invocations
 }
 

@@ -23,12 +23,12 @@ var _ = Describe("MoviedbLoader", func() {
 
 		series = []*database.Serie{
 			&database.Serie{Name: "got", Seasons: []*database.Season{
-				{Name: "s1"},
-				{Name: "s2"},
+				{Name: "s1", Episodes: []*database.Episode{{Name: "01"}, {Name: "02"}}},
+				{Name: "s2", Episodes: []*database.Episode{{Name: "01"}}},
 			}},
 			&database.Serie{Name: "vikings", Seasons: []*database.Season{
-				{Name: "s1"},
-				{Name: "s2"},
+				{Name: "s1", Episodes: []*database.Episode{{Name: "01"}}},
+				{Name: "s2", Episodes: []*database.Episode{{Name: "01"}}},
 			}},
 		}
 
@@ -290,6 +290,36 @@ var _ = Describe("MoviedbLoader", func() {
 				Expect(got_s1.Description).To(Equal("got desc"))
 				Expect(got_s1.PosterPath).To(Equal("got posterpath"))
 				Expect(got_s1.SeasonNumber).To(Equal(1))
+			})
+
+			Context("Episodes", func() {
+				It("has episodes", func() {
+					loader.ImportTmdb(tmdbMock, series)
+
+					got := series[0]
+					got_s1 := got.Seasons[0]
+					vikings := series[1]
+					vikings_s1 := vikings.Seasons[0]
+
+					Expect(len(got_s1.Episodes)).To(Equal(2))
+					Expect(len(vikings_s1.Episodes)).To(Equal(1))
+				})
+
+				It("should call GetTvEpisodeInfo", func() {
+					loader.ImportTmdb(tmdbMock, series)
+
+					Expect(tmdbMock.GetTvEpisodeInfoCallCount()).To(Equal(5))
+					showid, seasonNum, episodeNum, opt := tmdbMock.GetTvEpisodeInfoArgsForCall(0)
+					Expect(showid).To(Equal(1))
+					Expect(seasonNum).To(Equal(1))
+					Expect(episodeNum).To(Equal(1))
+					Expect(len(opt)).To(Equal(0))
+				})
+
+				It("should call rlc CheckRequest GetTvEpsiodeInfo", func() {
+					loader.ImportTmdb(tmdbMock, series)
+					Expect(loader.Requested["GetTvEpisodeInfo"]).To(Equal(5))
+				})
 			})
 		})
 	})
