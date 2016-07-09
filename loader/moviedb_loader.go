@@ -93,8 +93,23 @@ func applySerie(serie *database.Serie, info *tmdb.TV) {
 func loadSeasons(t tmdbInterface, serie *database.Serie) {
 	for _, season := range serie.Seasons {
 		CheckRequest("GetTvSeasonInfo")
-		t.GetTvSeasonInfo(serie.TmdbId, season.TmdbId, nil)
+		seasonInfo, err := t.GetTvSeasonInfo(serie.TmdbId, season.TmdbId, nil)
+		if err != nil {
+			panic("GetTvSeasonInfo error")
+		}
+		applySeasonData(seasonInfo, season)
 	}
+}
+
+func applySeasonData(info *tmdb.TvSeason, season *database.Season) {
+	if info == nil {
+		return
+	}
+	season.AirDate = info.AirDate
+	season.OriginalName = info.Name
+	season.Description = info.Overview
+	season.PosterPath = info.PosterPath
+	season.SeasonNumber = info.SeasonNumber
 }
 
 func getTmdbIdFromSeasons(seasonNumber int, info *tmdb.TV) int {

@@ -210,6 +210,9 @@ var _ = Describe("MoviedbLoader", func() {
 					result[100] = &tmdb.TvSeason{
 						ID:           100,
 						Name:         "Season 1",
+						AirDate:      "1.1.2010",
+						Overview:     "got desc",
+						PosterPath:   "got posterpath",
 						SeasonNumber: 1,
 					}
 					result[101] = &tmdb.TvSeason{
@@ -227,7 +230,7 @@ var _ = Describe("MoviedbLoader", func() {
 						Name:         "Season 2",
 						SeasonNumber: 2,
 					}
-					return result[showid], nil
+					return result[seasonid], nil
 				}
 			})
 
@@ -246,7 +249,7 @@ var _ = Describe("MoviedbLoader", func() {
 				Expect(vikings_s2_show_id).To(Equal(2))
 			})
 
-			It("should call rlc", func() {
+			It("should call CheckRequest GetTvSeasonInfo", func() {
 				loader.ImportTmdb(tmdbMock, series)
 
 				Expect(loader.Requested["GetTvSeasonInfo"]).To(Equal(4))
@@ -280,6 +283,13 @@ var _ = Describe("MoviedbLoader", func() {
 				Expect(got_s2.TmdbId).To(Equal(101))
 				Expect(vikings_s1.TmdbId).To(Equal(102))
 				Expect(vikings_s2.TmdbId).To(Equal(103))
+
+				Expect(got_s1.AirDate).To(Equal("1.1.2010"))
+				Expect(got_s1.OriginalName).To(Equal("Season 1"))
+				Expect(got_s1.Name).To(Equal("s1"))
+				Expect(got_s1.Description).To(Equal("got desc"))
+				Expect(got_s1.PosterPath).To(Equal("got posterpath"))
+				Expect(got_s1.SeasonNumber).To(Equal(1))
 			})
 		})
 	})
