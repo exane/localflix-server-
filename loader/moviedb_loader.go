@@ -143,40 +143,30 @@ func fetchNumber(name string) int {
 	return ret
 }
 
-func applyEpisode(e *database.Episode, i *tmdb.TvEpisode) {
-	//if len(i.AirDate) > 0 {
-	//e.AirDate = i.AirDate
-	//}
-	//if i.EpisodeNumber > 0 {
-	//e.EpisodeNumber = i.EpisodeNumber
-	//}
-	//if len(i.Name) > 0 {
-	//e.OriginalName = i.Name
-	//}
-	//if len(i.StillPath) > 0 {
-	//e.StillPath = i.StillPath
-	//}
-	//if i.ID > 0 {
-	//e.Tmdb_id = i.ID
-	//}
+func applyEpisodeData(episode *database.Episode, info *tmdb.TvEpisode) {
+	if info == nil {
+		return
+	}
+	episode.TmdbId = info.ID
+	episode.OriginalName = info.Name
+	episode.AirDate = info.AirDate
+	episode.EpisodeNumber = info.EpisodeNumber
+	episode.StillPath = info.StillPath
+	episode.Description = info.Overview
 }
 
 func loadEpisodes(t tmdbInterface, showID int, season *database.Season) {
 	for _, episode := range season.Episodes {
 		episodeNum := fetchNumber(episode.Name)
 		CheckRequest("GetTvEpisodeInfo")
-		t.GetTvEpisodeInfo(showID, season.SeasonNumber, episodeNum, nil)
+		episodeInfo, err := t.GetTvEpisodeInfo(showID, season.SeasonNumber, episodeNum, nil)
+
+		if err != nil {
+			panic("GetTvEpisodeInfo error")
+		}
+
+		applyEpisodeData(episode, episodeInfo)
 	}
-}
-
-func loadSeason(serieId, seasonNr int) (*tmdb.TvSeason, error) {
-	return nil, nil
-	//tmdn := getTmdb()
-
-	//rlc.checkRequest()
-	//info, err := tmdn.GetTvSeasonInfo(serieId, seasonNr, nil)
-
-	//return info, err
 }
 
 func validTitle(title string) bool {

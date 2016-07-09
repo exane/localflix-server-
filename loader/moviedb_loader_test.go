@@ -320,6 +320,34 @@ var _ = Describe("MoviedbLoader", func() {
 					loader.ImportTmdb(tmdbMock, series)
 					Expect(loader.Requested["GetTvEpisodeInfo"]).To(Equal(5))
 				})
+
+				It("should apply tmdb episode data to episodes", func() {
+					tmdbMock.GetTvEpisodeInfoReturns(&tmdb.TvEpisode{
+						AirDate:       "1.1.2010",
+						EpisodeNumber: 1,
+						Name:          "Episode 1",
+						Overview:      "ep1 desc",
+						ID:            1000,
+						SeasonNumber:  1,
+						StillPath:     "stillpath",
+						VoteAverage:   1,
+						VoteCount:     1,
+					}, nil)
+
+					loader.ImportTmdb(tmdbMock, series)
+
+					got := series[0]
+					got_s1 := got.Seasons[0]
+					got_s1_e1 := got_s1.Episodes[0]
+
+					Expect(got_s1_e1.TmdbId).To(Equal(1000))
+					Expect(got_s1_e1.Name).To(Equal("01"))
+					Expect(got_s1_e1.OriginalName).To(Equal("Episode 1"))
+					Expect(got_s1_e1.AirDate).To(Equal("1.1.2010"))
+					Expect(got_s1_e1.EpisodeNumber).To(Equal(1))
+					Expect(got_s1_e1.StillPath).To(Equal("stillpath"))
+					Expect(got_s1_e1.Description).To(Equal("ep1 desc"))
+				})
 			})
 		})
 	})
