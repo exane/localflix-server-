@@ -20,7 +20,7 @@ func InitDb() {
 	DB.LogMode(true)
 
 	if err != nil {
-		panic("failed to connect database")
+		panic(err.Error())
 	}
 }
 

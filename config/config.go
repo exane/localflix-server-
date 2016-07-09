@@ -32,7 +32,7 @@ func LoadConfig() *Config {
 		return config
 	}
 	config = &Config{}
-	js, _ := ioutil.ReadFile("../config.json")
+	js, _ := ioutil.ReadFile("./config.json")
 	json.Unmarshal(js, config)
 	return config
 }
