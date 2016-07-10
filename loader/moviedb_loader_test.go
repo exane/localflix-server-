@@ -42,14 +42,15 @@ var _ = Describe("MoviedbLoader", func() {
 			var result1 *tmdb.TV
 			if id == 1 {
 				result1 = &tmdb.TV{
-					Overview:     "got desc",
-					OriginalName: "got tmdb",
-					Name:         "got name",
-					ID:           1,
-					PosterPath:   "xyz",
-					VoteAverage:  10.0,
-					VoteCount:    1000,
-					FirstAirDate: "1.1.2010",
+					Overview:        "got desc",
+					OriginalName:    "got tmdb",
+					Name:            "got name",
+					ID:              1,
+					PosterPath:      "xyz",
+					VoteAverage:     10.0,
+					VoteCount:       1000,
+					FirstAirDate:    "1.1.2010",
+					NumberOfSeasons: 3,
 					Seasons: []struct {
 						AirDate      string `json:"air_date"`
 						EpisodeCount int    `json:"episode_count"`
@@ -59,18 +60,20 @@ var _ = Describe("MoviedbLoader", func() {
 					}{
 						{ID: 100, SeasonNumber: 1},
 						{ID: 101, SeasonNumber: 2},
+						{ID: 102, SeasonNumber: 3},
 					},
 				}
 			}
 			if id == 2 {
 				result1 = &tmdb.TV{
-					Overview:     "",
-					OriginalName: "",
-					Name:         "",
-					ID:           2,
-					PosterPath:   "",
-					VoteAverage:  0,
-					VoteCount:    0,
+					Overview:        "",
+					OriginalName:    "",
+					Name:            "",
+					ID:              2,
+					PosterPath:      "",
+					VoteAverage:     0,
+					VoteCount:       0,
+					NumberOfSeasons: 2,
 					Seasons: []struct {
 						AirDate      string `json:"air_date"`
 						EpisodeCount int    `json:"episode_count"`
@@ -274,13 +277,18 @@ var _ = Describe("MoviedbLoader", func() {
 						Name:         "Season 2",
 						SeasonNumber: 2,
 					}
-					result_vikings[1] = &tmdb.TvSeason{
+					result_got[3] = &tmdb.TvSeason{
 						ID:           102,
+						Name:         "Season 3",
+						SeasonNumber: 3,
+					}
+					result_vikings[1] = &tmdb.TvSeason{
+						ID:           110,
 						Name:         "Season 1",
 						SeasonNumber: 1,
 					}
 					result_vikings[2] = &tmdb.TvSeason{
-						ID:           103,
+						ID:           111,
 						Name:         "Season 2",
 						SeasonNumber: 2,
 					}
@@ -347,6 +355,28 @@ var _ = Describe("MoviedbLoader", func() {
 				Expect(got_s1.Description).To(Equal("got desc"))
 				Expect(got_s1.PosterPath).To(Equal("got posterpath"))
 				Expect(got_s1.SeasonNumber).To(Equal(1))
+			})
+
+			It("should load missing seasons", func() {
+				series = []*database.Serie{
+					&database.Serie{Name: "got", Seasons: []*database.Season{
+						{Name: "s2", Episodes: []*database.Episode{{Name: "01"}}},
+					}},
+					&database.Serie{Name: "vikings", Seasons: []*database.Season{
+						{Name: "s1", Episodes: []*database.Episode{{Name: "01"}}},
+						{Name: "s2", Episodes: []*database.Episode{{Name: "01"}}},
+					}},
+				}
+				loader.ImportTmdb(db, tmdbMock, series)
+				got := series[0].Seasons
+				Expect(len(got)).To(Equal(3))
+				got_s1 := got[0]
+				got_s2 := got[1]
+				got_s3 := got[2]
+				Expect(got_s1.SeasonNumber).To(Equal(1))
+				Expect(got_s2.SeasonNumber).To(Equal(2))
+				Expect(got_s3.SeasonNumber).To(Equal(3))
+
 			})
 
 			Context("Episodes", func() {

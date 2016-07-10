@@ -57,7 +57,7 @@ func ImportTmdb(db databaseInterface, t tmdbInterface, series []*database.Serie)
 		applyTmdbIds(serie, tvInfo)
 		applySerieData(serie, tvInfo)
 
-		loadSeasons(t, serie)
+		loadSeasons(t, tvInfo.NumberOfSeasons, serie)
 		if !IsTesting {
 			fmt.Printf("\nTMDb finished loading serie %s\n", serie.Name)
 		}
@@ -109,7 +109,7 @@ func applySerieData(serie *database.Serie, info *tmdb.TV) {
 	serie.FirstAirDate = info.FirstAirDate
 }
 
-func loadSeasons(t tmdbInterface, serie *database.Serie) {
+func loadSeasons(t tmdbInterface, numOfSeasons int, serie *database.Serie) {
 	for _, season := range serie.Seasons {
 		CheckRequest("GetTvSeasonInfo")
 		seasonInfo, err := t.GetTvSeasonInfo(serie.TmdbId, fetchNumber(season.Name), nil)

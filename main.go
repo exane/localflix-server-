@@ -37,7 +37,7 @@ func main() {
 			series := database.DumpImport()
 			loader.Import(&database.DB, series)
 		} else {
-			database.UpdateDb()
+			//database.UpdateDb()
 		}
 	}()
 
