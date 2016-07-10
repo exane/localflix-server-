@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -25,7 +26,7 @@ func getTmdb() *tmdb.TMDb {
 
 func Import(db databaseInterface, series []*database.Serie) {
 	ImportData(db, series)
-	ImportTmdb(getTmdb(), series)
+	ImportTmdb(db, getTmdb(), series)
 }
 
 type databaseInterface interface {
@@ -47,13 +48,20 @@ func ImportData(db databaseInterface, series []*database.Serie) error {
 	return nil
 }
 
-func ImportTmdb(t tmdbInterface, series []*database.Serie) {
+func ImportTmdb(db databaseInterface, t tmdbInterface, series []*database.Serie) {
 	for _, serie := range series {
+		if !IsTesting {
+			fmt.Printf("\nTMDb load serie %s\n", serie.Name)
+		}
 		tvInfo := loadSerie(t, serie.Name)
 		applyTmdbIds(serie, tvInfo)
 		applySerieData(serie, tvInfo)
 
 		loadSeasons(t, serie)
+		if !IsTesting {
+			fmt.Printf("\nTMDb finished loading serie %s\n", serie.Name)
+		}
+		db.Save(serie)
 	}
 }
 
@@ -77,12 +85,17 @@ func loadSerie(t tmdbInterface, name string) *tmdb.TV {
 	CheckRequest("SearchTv")
 	result, err := t.SearchTv(name, nil)
 	if err != nil {
-		panic("error searchtv")
+		fmt.Printf("\nError: %s\n", err.Error())
 	}
+
+	if len(result.Results) == 0 {
+		return &tmdb.TV{}
+	}
+
 	CheckRequest("GetTvInfo")
 	tvInfo, err := t.GetTvInfo(result.Results[0].ID, nil)
 	if err != nil {
-		panic("error getvinfo")
+		fmt.Printf("\nError: %s\n", err.Error())
 	}
 	return tvInfo
 }
@@ -99,9 +112,9 @@ func applySerieData(serie *database.Serie, info *tmdb.TV) {
 func loadSeasons(t tmdbInterface, serie *database.Serie) {
 	for _, season := range serie.Seasons {
 		CheckRequest("GetTvSeasonInfo")
-		seasonInfo, err := t.GetTvSeasonInfo(serie.TmdbId, season.TmdbId, nil)
+		seasonInfo, err := t.GetTvSeasonInfo(serie.TmdbId, fetchNumber(season.Name), nil)
 		if err != nil {
-			panic("GetTvSeasonInfo error")
+			fmt.Printf("\nError: %s\n%v\n%v\n", err.Error(), serie, season)
 		}
 		applySeasonData(seasonInfo, season)
 
@@ -167,7 +180,8 @@ func loadEpisodes(t tmdbInterface, showID int, season *database.Season) {
 		episodeInfo, err := t.GetTvEpisodeInfo(showID, season.SeasonNumber, episodeNum, nil)
 
 		if err != nil {
-			panic("GetTvEpisodeInfo error")
+			fmt.Printf("\nError: %s\n%v\n%v\n%v\n", err.Error(), showID, season, episode)
+			return
 		}
 
 		applyEpisodeData(episode, episodeInfo)

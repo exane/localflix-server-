@@ -55,5 +55,6 @@ func Requests() int {
 }
 
 func init() {
+	Requested = make(map[string]int)
 	Reset()
 }

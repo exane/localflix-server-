@@ -10,10 +10,10 @@
   },
   "fileserver": {
     "url": "localhost",
-    "root_directory": "Z:/serien/",
+    "rootDirectory": "Z:/serien/",
     "port": "3001"
   },
   "TMDb":{
-    "api_key": "api_key"
+    "apiKey": "api_key"
   }
 }
