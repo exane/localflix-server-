@@ -15,7 +15,7 @@ var cfg *config.Config
 
 func InitDb() {
 	cfg = config.LoadConfig()
-	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@/%s?charset=utf8&parseTime=True&loc=Local", cfg.Database.Root, cfg.Database.Password, cfg.Database.Db))
+	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@/%s?charset=latin1&parseTime=True&loc=Local", cfg.Database.Root, cfg.Database.Password, cfg.Database.Db))
 	DB = *db
 	DB.LogMode(true)
 
@@ -30,7 +30,7 @@ func CreateTables() {
 }
 
 func DumpImport() []*Serie {
-	data := LoadDump("./fetch/DATA_DUMP.json")
+	data := LoadDump(cfg.Fileserver.FetchOut + "/DATA_DUMP.json")
 
 	for _, val := range data {
 		DB.Create(&val)

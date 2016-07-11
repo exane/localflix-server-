@@ -2,9 +2,13 @@ package loader
 
 import "time"
 
+//X-RateLimit-Limit: 40
+//X-RateLimit-Remaining: 19
+//X-RateLimit-Reset: 1468249347
+
 const (
 	LIMIT_REQUEST = 40
-	LIMIT_RESET   = 15 //seconds
+	LIMIT_RESET   = 20 //seconds
 )
 
 var (

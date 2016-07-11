@@ -19,6 +19,7 @@ type Config struct {
 		URL           string
 		RootDirectory string
 		Port          string
+		FetchOut      string
 	}
 	TMDb struct {
 		ApiKey string

@@ -9,7 +9,7 @@ import (
 
 const (
 	PATH     = "/media/sf_Z_DRIVE/serien"
-	OUT_PATH = "/home/tim/Workspace/src/localflix-server-/fetch"
+	OUT_PATH = "/home/tim"
 	OUT      = "DATA_DUMP"
 	VIDEO    = ".*[.](avi|web|mkv|mp4)$"
 	SUBTITLE = ".*[.](srt|idx|sub|sfv)$"
@@ -52,12 +52,15 @@ func fetch(file FileType) []byte {
 		if ignore(val.Name()) {
 			continue
 		}
+		println(val.Name())
 		serie := Serie{Name: val.Name()}
 		serie.fetchSeasons(path, file)
 		series = append(series, serie)
 	}
 
 	js, _ := json.Marshal(series)
+	println("Write to:")
+	println(file.PathWrite() + "/" + OUT + ".json")
 	file.WriteJSON(file.PathWrite()+"/"+OUT+".json", []byte(js))
 	return js
 }

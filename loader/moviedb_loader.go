@@ -3,6 +3,7 @@ package loader
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -57,7 +58,7 @@ func ImportTmdb(db databaseInterface, t tmdbInterface, series []*database.Serie)
 		applyTmdbIds(serie, tvInfo)
 		applySerieData(serie, tvInfo)
 
-		loadSeasons(t, tvInfo.NumberOfSeasons, serie)
+		loadSeasons(t, tvInfo, serie)
 		if !IsTesting {
 			fmt.Printf("\nTMDb finished loading serie %s\n", serie.Name)
 		}
@@ -109,28 +110,58 @@ func applySerieData(serie *database.Serie, info *tmdb.TV) {
 	serie.FirstAirDate = info.FirstAirDate
 }
 
-func loadSeasons(t tmdbInterface, numOfSeasons int, serie *database.Serie) {
-	for _, season := range serie.Seasons {
+func loadSeasons(t tmdbInterface, tvInfo *tmdb.TV, serie *database.Serie) {
+	for _, season := range tvInfo.Seasons {
 		CheckRequest("GetTvSeasonInfo")
-		seasonInfo, err := t.GetTvSeasonInfo(serie.TmdbId, fetchNumber(season.Name), nil)
+		seasonInfo, err := t.GetTvSeasonInfo(serie.TmdbId, season.SeasonNumber, nil)
 		if err != nil {
 			fmt.Printf("\nError: %s\n%v\n%v\n", err.Error(), serie, season)
 		}
-		applySeasonData(seasonInfo, season)
 
-		loadEpisodes(t, serie.TmdbId, season)
+		s := applySeasonData(seasonInfo, &serie.Seasons)
+		loadEpisodes(t, serie.TmdbId, seasonInfo, s)
+		sortSeasons(serie.Seasons)
 	}
 }
 
-func applySeasonData(info *tmdb.TvSeason, season *database.Season) {
-	if info == nil {
-		return
+func sortSeasons(seasons []*database.Season) {
+	sort.Sort(seasonSort(seasons))
+}
+
+type seasonSort []*database.Season
+
+func (s seasonSort) Len() int {
+	return len(s)
+}
+
+func (s seasonSort) Less(i, j int) bool {
+	return s[i].SeasonNumber < s[j].SeasonNumber
+}
+
+func (s seasonSort) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func applySeasonData(info *tmdb.TvSeason, seasons *[]*database.Season) *database.Season {
+	var season *database.Season
+
+	for _, val := range *seasons {
+		if fetchNumber(val.Name) == info.SeasonNumber {
+			season = val
+			break
+		}
+	}
+	if season == nil {
+		season = &database.Season{Missing: true, Name: fmt.Sprintf("S%d", info.SeasonNumber)}
+		*seasons = append(*seasons, season)
 	}
 	season.AirDate = info.AirDate
 	season.OriginalName = info.Name
 	season.Description = info.Overview
 	season.PosterPath = info.PosterPath
 	season.SeasonNumber = info.SeasonNumber
+
+	return season
 }
 
 func getTmdbIdFromSeasons(seasonNumber int, info *tmdb.TV) int {
@@ -161,10 +192,25 @@ func fetchNumber(name string) int {
 	return ret
 }
 
-func applyEpisodeData(episode *database.Episode, info *tmdb.TvEpisode) {
+func applyEpisodeData(episodes *[]*database.Episode, info *tmdb.TvEpisode) {
 	if info == nil {
 		return
 	}
+	var episode *database.Episode
+	for _, val := range *episodes {
+		if val.EpisodeNumber == 0 {
+			val.EpisodeNumber = fetchNumber(val.Name)
+		}
+		if info.EpisodeNumber == fetchNumber(val.Name) {
+			episode = val
+			break
+		}
+	}
+	if episode == nil {
+		episode = &database.Episode{Missing: true}
+		*episodes = append(*episodes, episode)
+	}
+
 	episode.TmdbId = info.ID
 	episode.OriginalName = info.Name
 	episode.AirDate = info.AirDate
@@ -173,19 +219,38 @@ func applyEpisodeData(episode *database.Episode, info *tmdb.TvEpisode) {
 	episode.Description = info.Overview
 }
 
-func loadEpisodes(t tmdbInterface, showID int, season *database.Season) {
-	for _, episode := range season.Episodes {
-		episodeNum := fetchNumber(episode.Name)
+func loadEpisodes(t tmdbInterface, showID int, seasonInfo *tmdb.TvSeason, season *database.Season) {
+	if season.Missing {
+		return
+	}
+	for _, episode := range seasonInfo.Episodes {
 		CheckRequest("GetTvEpisodeInfo")
-		episodeInfo, err := t.GetTvEpisodeInfo(showID, season.SeasonNumber, episodeNum, nil)
-
+		episodeInfo, err := t.GetTvEpisodeInfo(showID, season.SeasonNumber, episode.EpisodeNumber, nil)
 		if err != nil {
 			fmt.Printf("\nError: %s\n%v\n%v\n%v\n", err.Error(), showID, season, episode)
-			return
+			continue
 		}
-
-		applyEpisodeData(episode, episodeInfo)
+		applyEpisodeData(&season.Episodes, episodeInfo)
 	}
+	sortEpisodes(season.Episodes)
+}
+
+func sortEpisodes(episodes []*database.Episode) {
+	sort.Sort(episodeSort(episodes))
+}
+
+type episodeSort []*database.Episode
+
+func (s episodeSort) Len() int {
+	return len(s)
+}
+
+func (s episodeSort) Less(i, j int) bool {
+	return s[i].EpisodeNumber < s[j].EpisodeNumber
+}
+
+func (s episodeSort) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }
 
 func ValidTitle(title string) bool {
