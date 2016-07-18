@@ -32,12 +32,12 @@ func main() {
 
 	go func() {
 		fetch.Fetch()
+		series := database.DumpImport()
 		if INSTALL == "true" {
 			database.CreateTables()
-			series := database.DumpImport()
 			loader.Import(&database.DB, series)
 		} else {
-			//database.UpdateDb()
+			loader.UpdateDB(&database.DB, series)
 		}
 	}()
 

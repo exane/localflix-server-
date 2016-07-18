@@ -19,7 +19,6 @@ var _ = Describe("MoviedbLoader", func() {
 
 	BeforeEach(func() {
 		db = &loaderfakes.FakeDatabaseInterface{}
-		db.NewRecordReturns(true)
 
 		series = []*database.Serie{
 			&database.Serie{Name: "got", Seasons: []*database.Season{
@@ -308,17 +307,17 @@ var _ = Describe("MoviedbLoader", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should call db.NewRecord", func() {
+		It("should call db.Create", func() {
 			loader.ImportData(db, series)
-			Expect(db.NewRecordCallCount()).ToNot(Equal(0))
+			Expect(db.CreateCallCount()).ToNot(Equal(0))
 		})
 
 		It("should create 2 series", func() {
 			loader.ImportData(db, series)
-			Expect(db.NewRecordCallCount()).To(Equal(3))
-			Expect(reflect.DeepEqual(db.NewRecordArgsForCall(0), series[0])).To(Equal(true))
-			Expect(reflect.DeepEqual(db.NewRecordArgsForCall(1), series[1])).To(Equal(true))
-			Expect(reflect.DeepEqual(db.NewRecordArgsForCall(2), series[2])).To(Equal(true))
+			Expect(db.CreateCallCount()).To(Equal(3))
+			Expect(reflect.DeepEqual(db.CreateArgsForCall(0), series[0])).To(Equal(true))
+			Expect(reflect.DeepEqual(db.CreateArgsForCall(1), series[1])).To(Equal(true))
+			Expect(reflect.DeepEqual(db.CreateArgsForCall(2), series[2])).To(Equal(true))
 		})
 	})
 
@@ -609,10 +608,30 @@ var _ = Describe("MoviedbLoader", func() {
 	})
 
 	Describe("UpdateDB", func() {
-		It("updated all entries", func() {
+		BeforeEach(func() {
+			db.NewRecordStub = func(v interface{}) bool {
+				res := make(map[string]bool)
+				res["got"] = false
+				res["vikings"] = false
+				res["breaking bad"] = false
+				res["true detective"] = true
+				return res[v.(*database.Serie).Name]
+			}
+			series = append(series, &database.Serie{
+				Name: "true detective",
+			})
+		})
+
+		It("inserts new series", func() {
 			loader.UpdateDB(db, series)
-			Expect(db.SaveCallCount()).To(Equal(1))
-			Expect(db.SaveArgsForCall(0)).To(Equal(series))
+			Expect(db.NewRecordCallCount()).To(Equal(4))
+		})
+
+		It("adds new seasons to series already existing", func() {
+			got := series[0]
+			got.Seasons = append(got.Seasons, &database.Season{Name: "s3"})
+			loader.UpdateDB(db, series)
+			Expect(db.SaveCallCount()).To(Equal(3))
 		})
 	})
 })

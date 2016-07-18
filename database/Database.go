@@ -32,9 +32,9 @@ func CreateTables() {
 func DumpImport() []*Serie {
 	data := LoadDump(cfg.Fileserver.FetchOut + "/DATA_DUMP.json")
 
-	for _, val := range data {
-		DB.Create(&val)
-	}
+	//for _, val := range data {
+	//DB.Create(&val)
+	//}
 
 	return data
 }

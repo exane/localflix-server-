@@ -16,6 +16,14 @@ type FakeDatabaseInterface struct {
 	newRecordReturns struct {
 		result1 bool
 	}
+	CreateStub        func(value interface{}) *gorm.DB
+	createMutex       sync.RWMutex
+	createArgsForCall []struct {
+		value interface{}
+	}
+	createReturns struct {
+		result1 *gorm.DB
+	}
 	SaveStub        func(interface{}) *gorm.DB
 	saveMutex       sync.RWMutex
 	saveArgsForCall []struct {
@@ -61,6 +69,39 @@ func (fake *FakeDatabaseInterface) NewRecordReturns(result1 bool) {
 	}{result1}
 }
 
+func (fake *FakeDatabaseInterface) Create(value interface{}) *gorm.DB {
+	fake.createMutex.Lock()
+	fake.createArgsForCall = append(fake.createArgsForCall, struct {
+		value interface{}
+	}{value})
+	fake.recordInvocation("Create", []interface{}{value})
+	fake.createMutex.Unlock()
+	if fake.CreateStub != nil {
+		return fake.CreateStub(value)
+	} else {
+		return fake.createReturns.result1
+	}
+}
+
+func (fake *FakeDatabaseInterface) CreateCallCount() int {
+	fake.createMutex.RLock()
+	defer fake.createMutex.RUnlock()
+	return len(fake.createArgsForCall)
+}
+
+func (fake *FakeDatabaseInterface) CreateArgsForCall(i int) interface{} {
+	fake.createMutex.RLock()
+	defer fake.createMutex.RUnlock()
+	return fake.createArgsForCall[i].value
+}
+
+func (fake *FakeDatabaseInterface) CreateReturns(result1 *gorm.DB) {
+	fake.CreateStub = nil
+	fake.createReturns = struct {
+		result1 *gorm.DB
+	}{result1}
+}
+
 func (fake *FakeDatabaseInterface) Save(arg1 interface{}) *gorm.DB {
 	fake.saveMutex.Lock()
 	fake.saveArgsForCall = append(fake.saveArgsForCall, struct {
@@ -99,6 +140,8 @@ func (fake *FakeDatabaseInterface) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.newRecordMutex.RLock()
 	defer fake.newRecordMutex.RUnlock()
+	fake.createMutex.RLock()
+	defer fake.createMutex.RUnlock()
 	fake.saveMutex.RLock()
 	defer fake.saveMutex.RUnlock()
 	return fake.invocations

@@ -32,6 +32,7 @@ func Import(db databaseInterface, series []*database.Serie) {
 
 type databaseInterface interface {
 	NewRecord(interface{}) bool
+	Create(value interface{}) *gorm.DB
 	Save(interface{}) *gorm.DB
 }
 
@@ -44,7 +45,7 @@ type tmdbInterface interface {
 
 func ImportData(db databaseInterface, series []*database.Serie) error {
 	for _, val := range series {
-		db.NewRecord(val)
+		db.Create(val)
 	}
 	return nil
 }
@@ -67,7 +68,13 @@ func ImportTmdb(db databaseInterface, t tmdbInterface, series []*database.Serie)
 }
 
 func UpdateDB(db databaseInterface, series []*database.Serie) {
-	db.Save(series)
+	for _, val := range series {
+		_ = "breakpoint"
+		created := db.NewRecord(val)
+		if !created {
+			db.Save(val)
+		}
+	}
 }
 
 func applyTmdbIds(serie *database.Serie, info *tmdb.TV) {
