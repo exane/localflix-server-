@@ -2,7 +2,8 @@ package loader_test
 
 import (
 	"errors"
-	"reflect"
+	"fmt"
+	"os"
 
 	"github.com/exane/localflix-server-/database"
 	"github.com/exane/localflix-server-/loader"
@@ -12,13 +13,17 @@ import (
 	"github.com/ryanbradynd05/go-tmdb"
 )
 
+func init() {
+	os.Setenv("ENV", "test")
+	database.InitDb()
+}
+
 var _ = Describe("MoviedbLoader", func() {
-	var db *loaderfakes.FakeDatabaseInterface
 	var series []*database.Serie
 	var tmdbMock *loaderfakes.FakeTmdbInterface
 
 	BeforeEach(func() {
-		db = &loaderfakes.FakeDatabaseInterface{}
+		database.SetUp()
 
 		series = []*database.Serie{
 			&database.Serie{Name: "got", Seasons: []*database.Season{
@@ -56,15 +61,15 @@ var _ = Describe("MoviedbLoader", func() {
 				VoteAverage:   1,
 				VoteCount:     1,
 			}
-			got_s1[2] = &tmdb.TvEpisode{Name: "02", EpisodeNumber: 2}
-			got_s2[1] = &tmdb.TvEpisode{Name: "01", EpisodeNumber: 1}
+			got_s1[2] = &tmdb.TvEpisode{ID: 1001, Name: "02", EpisodeNumber: 2}
+			got_s2[1] = &tmdb.TvEpisode{ID: 1010, Name: "01", EpisodeNumber: 1}
 
 			vikings := make(map[int](map[int]*tmdb.TvEpisode))
 			vikings_s1 := make(map[int]*tmdb.TvEpisode)
 			vikings_s2 := make(map[int]*tmdb.TvEpisode)
 			vikings[1] = vikings_s1
 			vikings[2] = vikings_s2
-			vikings_s1[1] = &tmdb.TvEpisode{Name: "01", EpisodeNumber: 1}
+			vikings_s1[1] = &tmdb.TvEpisode{ID: 2000, Name: "01", EpisodeNumber: 1}
 			vikings_s2[2] = &tmdb.TvEpisode{Name: "02", EpisodeNumber: 1}
 
 			breaking := make(map[int](map[int]*tmdb.TvEpisode))
@@ -74,16 +79,25 @@ var _ = Describe("MoviedbLoader", func() {
 			breaking[1] = breaking_s1
 			breaking[2] = breaking_s2
 			breaking[3] = breaking_s3
-			breaking_s1[1] = &tmdb.TvEpisode{Name: "01", EpisodeNumber: 1}
-			breaking_s2[1] = &tmdb.TvEpisode{Name: "01", EpisodeNumber: 1}
-			breaking_s2[2] = &tmdb.TvEpisode{Name: "02", EpisodeNumber: 2}
-			breaking_s2[3] = &tmdb.TvEpisode{Name: "03", EpisodeNumber: 3}
-			breaking_s2[4] = &tmdb.TvEpisode{Name: "04", EpisodeNumber: 4}
-			breaking_s3[1] = &tmdb.TvEpisode{Name: "01", EpisodeNumber: 1}
+			breaking_s1[1] = &tmdb.TvEpisode{ID: 3000, Name: "01", EpisodeNumber: 1}
+			breaking_s2[1] = &tmdb.TvEpisode{ID: 3010, Name: "01", EpisodeNumber: 1}
+			breaking_s2[2] = &tmdb.TvEpisode{ID: 3011, Name: "02", EpisodeNumber: 2}
+			breaking_s2[3] = &tmdb.TvEpisode{ID: 3012, Name: "03", EpisodeNumber: 3}
+			breaking_s2[4] = &tmdb.TvEpisode{ID: 3013, Name: "04", EpisodeNumber: 4}
+			breaking_s3[1] = &tmdb.TvEpisode{ID: 3020, Name: "01", EpisodeNumber: 1}
+
+			detective := make(map[int](map[int]*tmdb.TvEpisode))
+			detective_s1 := make(map[int]*tmdb.TvEpisode)
+			detective_s2 := make(map[int]*tmdb.TvEpisode)
+			detective[1] = detective_s1
+			detective[2] = detective_s2
+			detective_s1[1] = &tmdb.TvEpisode{Name: "01", EpisodeNumber: 1}
+			detective_s2[1] = &tmdb.TvEpisode{Name: "01", EpisodeNumber: 1}
 
 			result[1] = got
 			result[2] = vikings
 			result[3] = breaking
+			result[4] = detective
 			return result[showID][seasonNum][episodeNum], nil
 		}
 		tmdbMock.GetTvInfoStub = func(id int, options map[string]string) (*tmdb.TV, error) {
@@ -160,6 +174,28 @@ var _ = Describe("MoviedbLoader", func() {
 					},
 				}
 			}
+			if id == 4 {
+				result1 = &tmdb.TV{
+					Overview:        "",
+					OriginalName:    "",
+					Name:            "",
+					ID:              4,
+					PosterPath:      "",
+					VoteAverage:     0,
+					VoteCount:       0,
+					NumberOfSeasons: 2,
+					Seasons: []struct {
+						AirDate      string `json:"air_date"`
+						EpisodeCount int    `json:"episode_count"`
+						ID           int
+						PosterPath   string `json:"poster_path"`
+						SeasonNumber int    `json:"season_number"`
+					}{
+						{ID: 130, SeasonNumber: 1},
+						{ID: 131, SeasonNumber: 2},
+					},
+				}
+			}
 			return result1, nil
 		}
 
@@ -177,6 +213,9 @@ var _ = Describe("MoviedbLoader", func() {
 			}
 			if name == "breaking bad" {
 				id = 3
+			}
+			if name == "true detective" {
+				id = 4
 			}
 
 			result_empty := &tmdb.TvSearchResults{
@@ -221,6 +260,7 @@ var _ = Describe("MoviedbLoader", func() {
 			result_got := make(map[int]*tmdb.TvSeason)
 			result_vikings := make(map[int]*tmdb.TvSeason)
 			result_breaking := make(map[int]*tmdb.TvSeason)
+			result_detective := make(map[int]*tmdb.TvSeason)
 
 			result_got[1] = &tmdb.TvSeason{
 				ID:           100,
@@ -293,31 +333,46 @@ var _ = Describe("MoviedbLoader", func() {
 					{Name: "01", EpisodeNumber: 1},
 				},
 			}
+			result_detective[1] = &tmdb.TvSeason{
+				ID:           130,
+				Name:         "Season 1",
+				SeasonNumber: 1,
+				Episodes: []tmdb.TvEpisode{
+					{Name: "01", EpisodeNumber: 1},
+				},
+			}
+			result_detective[2] = &tmdb.TvSeason{
+				ID:           131,
+				Name:         "Season 2",
+				SeasonNumber: 2,
+				Episodes: []tmdb.TvEpisode{
+					{Name: "01", EpisodeNumber: 1},
+				},
+			}
 
 			result[1] = result_got
 			result[2] = result_vikings
 			result[3] = result_breaking
+			result[4] = result_detective
 			return result[showid][seasonid], nil
 		}
 	})
 
 	Describe("ImportData", func() {
 		It("should not throw an error", func() {
-			err := loader.ImportData(db, series)
+			err := loader.ImportData(series)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should call db.Create", func() {
-			loader.ImportData(db, series)
-			Expect(db.CreateCallCount()).ToNot(Equal(0))
-		})
+		It("should insert series", func() {
+			loader.ImportData(series)
 
-		It("should create 2 series", func() {
-			loader.ImportData(db, series)
-			Expect(db.CreateCallCount()).To(Equal(3))
-			Expect(reflect.DeepEqual(db.CreateArgsForCall(0), series[0])).To(Equal(true))
-			Expect(reflect.DeepEqual(db.CreateArgsForCall(1), series[1])).To(Equal(true))
-			Expect(reflect.DeepEqual(db.CreateArgsForCall(2), series[2])).To(Equal(true))
+			expected_length := len(series)
+
+			result_series := []*database.Serie{}
+			database.DB.Find(&result_series)
+
+			Expect(len(result_series)).To(Equal(expected_length))
 		})
 	})
 
@@ -325,29 +380,29 @@ var _ = Describe("MoviedbLoader", func() {
 		It("should not panic", func() {
 			series = nil
 			for i := 0; i < 10; i++ {
-				series = append(series, &database.Serie{Name: "got"})
+				series = append(series, &database.Serie{Name: fmt.Sprintf("got%d", i)})
 			}
 			Expect(func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 			}).ToNot(Panic())
 
 			series = nil
 			for i := 0; i < 50; i++ {
-				series = append(series, &database.Serie{Name: "got"})
+				series = append(series, &database.Serie{Name: fmt.Sprintf("got2_%d", i)})
 			}
 			Expect(func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 			}).ToNot(Panic())
 		})
 
 		It("should call check rlc for SearchTv", func() {
-			loader.ImportTmdb(db, tmdbMock, series)
+			loader.ImportTmdb(tmdbMock, series)
 
 			Expect(loader.Requested["SearchTv"]).To(Equal(3))
 		})
 
 		It("should call check rlc for GetTvInfo", func() {
-			loader.ImportTmdb(db, tmdbMock, series)
+			loader.ImportTmdb(tmdbMock, series)
 
 			Expect(loader.Requested["GetTvInfo"]).To(Equal(3))
 		})
@@ -355,12 +410,12 @@ var _ = Describe("MoviedbLoader", func() {
 		It("should ignore empty results", func() {
 			series[0].Name = "empty"
 			Expect(func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 			}).ToNot(Panic())
 		})
 
 		It("should fetch entities from tmdb", func() {
-			loader.ImportTmdb(db, tmdbMock, series)
+			loader.ImportTmdb(tmdbMock, series)
 
 			Expect(tmdbMock.SearchTvCallCount()).To(Equal(3))
 			got, _ := tmdbMock.SearchTvArgsForCall(0)
@@ -370,7 +425,7 @@ var _ = Describe("MoviedbLoader", func() {
 		})
 
 		It("should apply on series", func() {
-			loader.ImportTmdb(db, tmdbMock, series)
+			loader.ImportTmdb(tmdbMock, series)
 
 			got := series[0]
 			vikings := series[1]
@@ -394,8 +449,8 @@ var _ = Describe("MoviedbLoader", func() {
 		})
 
 		It("should save each serie after fetching all seasons and episodes", func() {
-			loader.ImportTmdb(db, tmdbMock, series)
-			Expect(db.SaveCallCount()).To(Equal(3))
+			db := database.DB
+			loader.ImportTmdb(tmdbMock, series)
 
 			got := series[0]
 			got_s1 := got.Seasons[0]
@@ -404,11 +459,20 @@ var _ = Describe("MoviedbLoader", func() {
 			Expect(got.TmdbId).ToNot(BeZero())
 			Expect(got_s1.TmdbId).ToNot(BeZero())
 			Expect(got_s1_e1.TmdbId).ToNot(BeZero())
+
+			result_got := &database.Serie{}
+			db.Find(result_got, "name = ?", got.Name)
+			db.Model(result_got).Related(&result_got.Seasons)
+			db.Model(result_got.Seasons[0]).Related(&result_got.Seasons[0].Episodes)
+
+			Expect(result_got.TmdbId).To(Equal(got.TmdbId))
+			Expect(result_got.Seasons[0].TmdbId).To(Equal(got_s1.TmdbId))
+			Expect(result_got.Seasons[0].Episodes[0].TmdbId).To(Equal(got_s1_e1.TmdbId))
 		})
 
 		Context("Seasons", func() {
 			It("should call TvSeason", func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 
 				Expect(tmdbMock.GetTvSeasonInfoCallCount()).To(Equal(8))
 				got_s1_show_id, _, _ := tmdbMock.GetTvSeasonInfoArgsForCall(0)
@@ -431,13 +495,13 @@ var _ = Describe("MoviedbLoader", func() {
 			})
 
 			It("should call CheckRequest GetTvSeasonInfo", func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 
 				Expect(loader.Requested["GetTvSeasonInfo"]).To(Equal(8))
 			})
 
 			It("should apply tmdb season ids to seasons", func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 
 				_, got_s1_season_id, _ := tmdbMock.GetTvSeasonInfoArgsForCall(0)
 				_, got_s2_season_id, _ := tmdbMock.GetTvSeasonInfoArgsForCall(1)
@@ -459,7 +523,7 @@ var _ = Describe("MoviedbLoader", func() {
 			})
 
 			It("should load tmdb season infos and apply them on seasons", func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 
 				got := series[0]
 				got_s1 := got.Seasons[0]
@@ -485,7 +549,7 @@ var _ = Describe("MoviedbLoader", func() {
 			})
 
 			It("should load missing seasons", func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 				br := series[2].Seasons
 				Expect(len(br)).To(Equal(3))
 				br_s1 := br[0]
@@ -497,7 +561,7 @@ var _ = Describe("MoviedbLoader", func() {
 			})
 
 			It("should mark non existing seasons", func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 				bb := series[2]
 				bb_s1 := bb.Seasons[0]
 				bb_s2 := bb.Seasons[1]
@@ -508,14 +572,14 @@ var _ = Describe("MoviedbLoader", func() {
 			})
 
 			It("should not load episodes of missing seasons", func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 				bb := series[2]
 				bb_s1 := bb.Seasons[0]
 				Expect(bb_s1.Episodes).To(BeNil())
 			})
 
 			It("missing seasons should have a season number and name", func() {
-				loader.ImportTmdb(db, tmdbMock, series)
+				loader.ImportTmdb(tmdbMock, series)
 				bb := series[2]
 				bb_s1 := bb.Seasons[0]
 				bb_s2 := bb.Seasons[1]
@@ -531,7 +595,7 @@ var _ = Describe("MoviedbLoader", func() {
 
 			Context("Episodes", func() {
 				It("has episodes", func() {
-					loader.ImportTmdb(db, tmdbMock, series)
+					loader.ImportTmdb(tmdbMock, series)
 
 					got := series[0]
 					got_s1 := got.Seasons[0]
@@ -543,7 +607,7 @@ var _ = Describe("MoviedbLoader", func() {
 				})
 
 				It("should call GetTvEpisodeInfo", func() {
-					loader.ImportTmdb(db, tmdbMock, series)
+					loader.ImportTmdb(tmdbMock, series)
 
 					Expect(tmdbMock.GetTvEpisodeInfoCallCount()).To(Equal(9))
 					showid, seasonNum, episodeNum, opt := tmdbMock.GetTvEpisodeInfoArgsForCall(0)
@@ -554,12 +618,12 @@ var _ = Describe("MoviedbLoader", func() {
 				})
 
 				It("should call rlc CheckRequest GetTvEpsiodeInfo", func() {
-					loader.ImportTmdb(db, tmdbMock, series)
+					loader.ImportTmdb(tmdbMock, series)
 					Expect(loader.Requested["GetTvEpisodeInfo"]).To(Equal(9))
 				})
 
 				It("should apply tmdb episode data to episodes", func() {
-					loader.ImportTmdb(db, tmdbMock, series)
+					loader.ImportTmdb(tmdbMock, series)
 
 					got := series[0]
 					got_s1 := got.Seasons[0]
@@ -575,7 +639,7 @@ var _ = Describe("MoviedbLoader", func() {
 				})
 
 				It("shows missing episodes", func() {
-					loader.ImportTmdb(db, tmdbMock, series)
+					loader.ImportTmdb(tmdbMock, series)
 					bb := series[2]
 					bb_s2 := bb.Seasons[1]
 					bb_s2_e1 := bb_s2.Episodes[0]
@@ -591,7 +655,7 @@ var _ = Describe("MoviedbLoader", func() {
 				})
 
 				It("should mark missing episodes", func() {
-					loader.ImportTmdb(db, tmdbMock, series)
+					loader.ImportTmdb(tmdbMock, series)
 					bb := series[2]
 					bb_s2 := bb.Seasons[1]
 					bb_s2_e1 := bb_s2.Episodes[0]
@@ -609,29 +673,125 @@ var _ = Describe("MoviedbLoader", func() {
 
 	Describe("UpdateDB", func() {
 		BeforeEach(func() {
-			db.NewRecordStub = func(v interface{}) bool {
-				res := make(map[string]bool)
-				res["got"] = false
-				res["vikings"] = false
-				res["breaking bad"] = false
-				res["true detective"] = true
-				return res[v.(*database.Serie).Name]
-			}
+			//db.NewRecordStub = func(v interface{}) bool {
+			//res := make(map[string]bool)
+			//res["got"] = false
+			//res["vikings"] = false
+			//res["breaking bad"] = false
+			//res["true detective"] = true
+			//return res[v.(*database.Serie).Name]
+			//}
 			series = append(series, &database.Serie{
-				Name: "true detective",
+				Name: "true detective", Seasons: []*database.Season{},
 			})
+			series[0].TmdbId = 1
+			series[1].TmdbId = 2
+			series[2].TmdbId = 3
+
+			for _, serie := range series {
+				database.DB.Save(serie)
+			}
 		})
 
-		It("inserts new series", func() {
-			loader.UpdateDB(db, series)
-			Expect(db.NewRecordCallCount()).To(Equal(4))
+		It("should load all series from db into models", func() {
+			Expect(len(series)).To(Equal(4))
+
+			loader.UpdateDB(tmdbMock, series)
+
+			for _, serie := range series {
+				Expect(serie.ID).ToNot(Equal(uint(0)))
+			}
+			Expect(len(series)).To(Equal(4))
 		})
 
-		It("adds new seasons to series already existing", func() {
+		It("should add a new serie with tmdb", func() {
+			loader.UpdateDB(tmdbMock, series)
+
+			Expect(series[3].TmdbId).To(Equal(4))
+			Expect(series[3].ID).To(Equal(uint(4)))
+		})
+
+		FIt("should not create duplicated seasons", func() {
 			got := series[0]
-			got.Seasons = append(got.Seasons, &database.Season{Name: "s3"})
-			loader.UpdateDB(db, series)
-			Expect(db.SaveCallCount()).To(Equal(3))
+			//got_s1 := got.Seasons[0]
+			//got_s2 := got.Seasons[1]
+
+			Expect(len(got.Seasons)).To(Equal(2))
+
+			loader.UpdateDB(tmdbMock, series)
+
+			Expect(len(got.Seasons)).To(Equal(2))
+		})
+
+		It("should add a new season with tmdb", func() {
+			series = []*database.Serie{
+				{Name: "got", TmdbId: 1, Seasons: []*database.Season{
+					{Name: "s1"},
+					{Name: "s2", TmdbId: 101},
+					{Name: "s3"},
+				}},
+			}
+			new_season := series[0].Seasons[0]
+			new_season_2 := series[0].Seasons[2]
+
+			loader.UpdateDB(tmdbMock, series)
+
+			Expect(new_season.TmdbId).To(Equal(100))
+			Expect(new_season.ID).ToNot(Equal(uint(0)))
+			Expect(new_season_2.TmdbId).To(Equal(102))
+			Expect(new_season_2.ID).ToNot(Equal(uint(0)))
+			//Expect(tmdbMock.GetTvSeasonInfoCallCount()).To(Equal(1))
+		})
+
+		It("should add a new episode with tmdb", func() {
+			series = []*database.Serie{
+				{Name: "got", TmdbId: 1, Seasons: []*database.Season{
+					{Name: "s1", TmdbId: 100, Episodes: []*database.Episode{
+						{Name: "01"},
+					}},
+					{Name: "s2", Episodes: []*database.Episode{
+						{Name: "01"},
+					}},
+				}},
+				{Name: "vikings", Seasons: []*database.Season{
+					{Name: "s1", Episodes: []*database.Episode{
+						{Name: "01"},
+					}},
+				}},
+			}
+
+			got_s1_e1 := series[0].Seasons[0].Episodes[0]
+			got_s2_e1 := series[0].Seasons[1].Episodes[0]
+			vikings_s1_e1 := series[1].Seasons[0].Episodes[0]
+
+			loader.UpdateDB(tmdbMock, series)
+
+			Expect(got_s1_e1.TmdbId).To(Equal(1000))
+			Expect(got_s1_e1.ID).ToNot(Equal(uint(0)))
+
+			Expect(got_s2_e1.TmdbId).To(Equal(1010))
+			Expect(got_s2_e1.ID).ToNot(Equal(uint(0)))
+
+			Expect(vikings_s1_e1.TmdbId).To(Equal(2000))
+			Expect(vikings_s1_e1.ID).ToNot(Equal(uint(0)))
+		})
+
+		It("should try to update all series with missing tmdbids", func() {
+			bb := series[2]
+
+			loader.UpdateDB(tmdbMock, series)
+
+			bb_s2 := bb.Seasons[1]
+
+			Expect(tmdbMock.GetTvInfoCallCount()).To(Equal(4))
+			Expect(series[3].TmdbId).To(Equal(4))
+
+			Expect(bb_s2.TmdbId).To(Equal(121))
+			Expect(bb_s2.Episodes[0].TmdbId).To(Equal(3010))
+			Expect(bb_s2.Episodes[1].TmdbId).To(Equal(3011))
+			Expect(bb_s2.Episodes[2].TmdbId).To(Equal(3012))
+			Expect(bb_s2.Episodes[3].TmdbId).To(Equal(3013))
+			Expect(bb_s2.Episodes[4].TmdbId).To(Equal(0))
 		})
 	})
 })

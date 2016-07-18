@@ -1,19 +1,40 @@
 {
-  "database": {
-    "root": "root",
-    "password": "password",
-    "db": "localflix"
+  "development": {
+    "database": {
+      "root": "root",
+      "password": "password",
+      "db": "localflix_development"
+    },
+    "server": {
+      "url": "localhost",
+      "port": "3000"
+    },
+    "fileserver": {
+      "url": "localhost",
+      "rootDirectory": "Z:/serien/",
+      "port": "3001"
+    },
+    "TMDb":{
+      "apiKey": "api_key"
+    }
   },
-  "server": {
-    "url": "localhost",
-    "port": "3000"
-  },
-  "fileserver": {
-    "url": "localhost",
-    "rootDirectory": "Z:/serien/",
-    "port": "3001"
-  },
-  "TMDb":{
-    "apiKey": "api_key"
+  "test": {
+    "database": {
+      "root": "root",
+      "password": "password",
+      "db": "localflix_test"
+    },
+    "server": {
+      "url": "localhost",
+      "port": "3000"
+    },
+    "fileserver": {
+      "url": "localhost",
+      "rootDirectory": "Z:/serien/",
+      "port": "3001"
+    },
+    "TMDb":{
+      "apiKey": ""
+    }
   }
 }

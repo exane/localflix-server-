@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/exane/localflix-server-/config"
 	"github.com/jinzhu/gorm"
@@ -17,11 +18,17 @@ func InitDb() {
 	cfg = config.LoadConfig()
 	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@/%s?charset=latin1&parseTime=True&loc=Local", cfg.Database.Root, cfg.Database.Password, cfg.Database.Db))
 	DB = *db
-	DB.LogMode(true)
+	if os.Getenv("ENV") == "development" {
+		DB.LogMode(true)
+	}
 
 	if err != nil {
 		panic(err.Error())
 	}
+}
+
+func SetUp() {
+	CreateTables()
 }
 
 func CreateTables() {

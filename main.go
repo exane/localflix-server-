@@ -28,6 +28,7 @@ var (
 )
 
 func main() {
+	os.Setenv("ENV", "development")
 	database.InitDb()
 
 	go func() {
@@ -35,9 +36,9 @@ func main() {
 		series := database.DumpImport()
 		if INSTALL == "true" {
 			database.CreateTables()
-			loader.Import(&database.DB, series)
+			loader.Import(series)
 		} else {
-			loader.UpdateDB(&database.DB, series)
+			loader.Update(series)
 		}
 	}()
 

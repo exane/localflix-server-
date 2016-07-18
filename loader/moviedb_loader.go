@@ -2,19 +2,13 @@ package loader
 
 import (
 	"fmt"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
 
 	"github.com/exane/localflix-server-/config"
 	"github.com/exane/localflix-server-/database"
-	"github.com/jinzhu/gorm"
 	"github.com/ryanbradynd05/go-tmdb"
 )
 
 var tmdn *tmdb.TMDb
-
 var seriesDump []database.Serie
 
 func getTmdb() *tmdb.TMDb {
@@ -25,15 +19,13 @@ func getTmdb() *tmdb.TMDb {
 	return tmdn
 }
 
-func Import(db databaseInterface, series []*database.Serie) {
-	ImportData(db, series)
-	ImportTmdb(db, getTmdb(), series)
+func Import(series []*database.Serie) {
+	ImportData(series)
+	ImportTmdb(getTmdb(), series)
 }
 
-type databaseInterface interface {
-	NewRecord(interface{}) bool
-	Create(value interface{}) *gorm.DB
-	Save(interface{}) *gorm.DB
+func Update(series []*database.Serie) {
+	UpdateDB(getTmdb(), series)
 }
 
 type tmdbInterface interface {
@@ -43,110 +35,114 @@ type tmdbInterface interface {
 	GetTvEpisodeInfo(showID, seasonNum, episodeNum int, options map[string]string) (*tmdb.TvEpisode, error)
 }
 
-func ImportData(db databaseInterface, series []*database.Serie) error {
+func ImportData(series []*database.Serie) error {
+	db := database.DB
 	for _, val := range series {
-		db.Create(val)
+		db.FirstOrCreate(val, "name = ? ", val.Name)
 	}
 	return nil
 }
 
-func ImportTmdb(db databaseInterface, t tmdbInterface, series []*database.Serie) {
+func ImportTmdb(t tmdbInterface, series []*database.Serie) {
 	for _, serie := range series {
 		if !IsTesting {
 			fmt.Printf("\nTMDb load serie %s\n", serie.Name)
 		}
 		tvInfo := loadSerie(t, serie.Name)
-		applyTmdbIds(serie, tvInfo)
 		applySerieData(serie, tvInfo)
+		loadSeasons(t, tvInfo, serie)
+
+		if !IsTesting {
+			fmt.Printf("\nTMDb finished loading serie %s\n", serie.Name)
+		}
+		database.DB.Save(serie)
+	}
+}
+
+func UpdateDB(t tmdbInterface, series []*database.Serie) {
+	db := database.DB
+
+	for _, serie := range series {
+		db.Find(&serie, "name = ?", serie.Name)
+
+		if !IsTesting {
+			fmt.Printf("\nTMDb load serie %s\n", serie.Name)
+		}
+		tvInfo := loadSerie(t, serie.Name)
+		if serie.TmdbId == 0 {
+			applySerieData(serie, tvInfo)
+		}
 
 		loadSeasons(t, tvInfo, serie)
 		if !IsTesting {
 			fmt.Printf("\nTMDb finished loading serie %s\n", serie.Name)
 		}
-		db.Save(serie)
-	}
-}
-
-func UpdateDB(db databaseInterface, series []*database.Serie) {
-	for _, val := range series {
-		_ = "breakpoint"
-		created := db.NewRecord(val)
-		if !created {
-			db.Save(val)
-		}
-	}
-}
-
-func applyTmdbIds(serie *database.Serie, info *tmdb.TV) {
-	serie.TmdbId = info.ID
-	applyTmdbIdsToSeasons(serie, info)
-}
-
-func applyTmdbIdsToSeasons(serie *database.Serie, info *tmdb.TV) {
-	for _, season := range serie.Seasons {
-		seasonNr := fetchNumber(season.Name)
-		season.TmdbId = getTmdbIdFromSeasons(seasonNr, info)
+		database.DB.Save(serie)
 	}
 }
 
 func loadSerie(t tmdbInterface, name string) *tmdb.TV {
-	CheckRequest("SearchTv")
-	result, err := t.SearchTv(name, nil)
-	if err != nil {
-		fmt.Printf("\nError: %s\n", err.Error())
-	}
+	result := searchTv(t, name)
 
 	if len(result.Results) == 0 {
 		return &tmdb.TV{}
 	}
 
-	CheckRequest("GetTvInfo")
-	tvInfo, err := t.GetTvInfo(result.Results[0].ID, nil)
-	if err != nil {
-		fmt.Printf("\nError: %s\n", err.Error())
-	}
+	tvInfo := getTvInfo(t, result)
+
 	return tvInfo
 }
 
+func fetchCurrentSeason(tmdbid int, seasons []*database.Season) *database.Season {
+	for _, val := range seasons {
+		if tmdbid == val.TmdbId {
+			return val
+		}
+	}
+	return nil
+}
+
+func debugRecover(args ...interface{}) {
+	if r := recover(); r != nil {
+		_ = "breakpoint"
+	}
+}
+
+func loadSeasons(t tmdbInterface, tvInfo *tmdb.TV, serie *database.Serie) {
+	if tvInfo == nil {
+		return
+	}
+	for index := range tvInfo.Seasons {
+		seasonInfo := getTvSeasonInfo(t, serie, tvInfo, index)
+		season := applySeasonData(seasonInfo, &serie.Seasons)
+
+		loadEpisodes(t, serie.TmdbId, seasonInfo, season)
+	}
+	sortSeasons(serie.Seasons)
+}
+
+func loadEpisodes(t tmdbInterface, showID int, seasonInfo *tmdb.TvSeason, season *database.Season) {
+	if season.Missing {
+		return
+	}
+	for _, episode := range seasonInfo.Episodes {
+		episodeInfo := getTvEpisodeInfo(t, showID, seasonInfo, episode)
+		applyEpisodeData(&season.Episodes, episodeInfo)
+	}
+	sortEpisodes(season.Episodes)
+}
+
 func applySerieData(serie *database.Serie, info *tmdb.TV) {
+	if info == nil {
+		return
+	}
+	serie.TmdbId = info.ID
 	serie.OriginalName = info.OriginalName
 	serie.Description = info.Overview
 	serie.PosterPath = info.PosterPath
 	serie.VoteAverage = info.VoteAverage
 	serie.VoteCount = info.VoteCount
 	serie.FirstAirDate = info.FirstAirDate
-}
-
-func loadSeasons(t tmdbInterface, tvInfo *tmdb.TV, serie *database.Serie) {
-	for _, season := range tvInfo.Seasons {
-		CheckRequest("GetTvSeasonInfo")
-		seasonInfo, err := t.GetTvSeasonInfo(serie.TmdbId, season.SeasonNumber, nil)
-		if err != nil {
-			fmt.Printf("\nError: %s\n%v\n%v\n", err.Error(), serie, season)
-		}
-
-		s := applySeasonData(seasonInfo, &serie.Seasons)
-		loadEpisodes(t, serie.TmdbId, seasonInfo, s)
-		sortSeasons(serie.Seasons)
-	}
-}
-
-func sortSeasons(seasons []*database.Season) {
-	sort.Sort(seasonSort(seasons))
-}
-
-type seasonSort []*database.Season
-
-func (s seasonSort) Len() int {
-	return len(s)
-}
-
-func (s seasonSort) Less(i, j int) bool {
-	return s[i].SeasonNumber < s[j].SeasonNumber
-}
-
-func (s seasonSort) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
 }
 
 func applySeasonData(info *tmdb.TvSeason, seasons *[]*database.Season) *database.Season {
@@ -162,6 +158,7 @@ func applySeasonData(info *tmdb.TvSeason, seasons *[]*database.Season) *database
 		season = &database.Season{Missing: true, Name: fmt.Sprintf("S%d", info.SeasonNumber)}
 		*seasons = append(*seasons, season)
 	}
+	season.TmdbId = info.ID
 	season.AirDate = info.AirDate
 	season.OriginalName = info.Name
 	season.Description = info.Overview
@@ -169,34 +166,6 @@ func applySeasonData(info *tmdb.TvSeason, seasons *[]*database.Season) *database
 	season.SeasonNumber = info.SeasonNumber
 
 	return season
-}
-
-func getTmdbIdFromSeasons(seasonNumber int, info *tmdb.TV) int {
-	for _, val := range info.Seasons {
-		if val.SeasonNumber == seasonNumber {
-			return val.ID
-		}
-	}
-	return -1
-}
-
-func FindSerie(name string) *tmdb.TvSearchResults {
-	//tmdn := getTmdb()
-
-	//rlc.checkRequest()
-	//result, err := tmdn.SearchTv(name, nil)
-	//if err != nil {
-	//println(err)
-	//}
-	//return result
-	return nil
-}
-
-func fetchNumber(name string) int {
-	name = strings.Trim(name, " ")
-	regex := regexp.MustCompile("[Ss]?(\\d+)")
-	ret, _ := strconv.Atoi(regex.ReplaceAllString(name, "$1"))
-	return ret
 }
 
 func applyEpisodeData(episodes *[]*database.Episode, info *tmdb.TvEpisode) {
@@ -224,46 +193,4 @@ func applyEpisodeData(episodes *[]*database.Episode, info *tmdb.TvEpisode) {
 	episode.EpisodeNumber = info.EpisodeNumber
 	episode.StillPath = info.StillPath
 	episode.Description = info.Overview
-}
-
-func loadEpisodes(t tmdbInterface, showID int, seasonInfo *tmdb.TvSeason, season *database.Season) {
-	if season.Missing {
-		return
-	}
-	for _, episode := range seasonInfo.Episodes {
-		CheckRequest("GetTvEpisodeInfo")
-		episodeInfo, err := t.GetTvEpisodeInfo(showID, season.SeasonNumber, episode.EpisodeNumber, nil)
-		if err != nil {
-			fmt.Printf("\nError: %s\n%v\n%v\n%v\n", err.Error(), showID, season, episode)
-			continue
-		}
-		applyEpisodeData(&season.Episodes, episodeInfo)
-	}
-	sortEpisodes(season.Episodes)
-}
-
-func sortEpisodes(episodes []*database.Episode) {
-	sort.Sort(episodeSort(episodes))
-}
-
-type episodeSort []*database.Episode
-
-func (s episodeSort) Len() int {
-	return len(s)
-}
-
-func (s episodeSort) Less(i, j int) bool {
-	return s[i].EpisodeNumber < s[j].EpisodeNumber
-}
-
-func (s episodeSort) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
-func ValidTitle(title string) bool {
-	name := strings.Trim(title, "? ")
-	if len(name) > 0 {
-		return true
-	}
-	return false
 }
